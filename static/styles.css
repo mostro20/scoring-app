@@ -1,0 +1,25 @@
+body {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+h1 {
+    padding: 1em 0;
+    font-size: 1.6em;
+}
+
+h2 {
+    padding: 0.5em 0;
+    font-size: 1.4em;
+}
+
+.btn, .btn-primary {
+    background-color: #008480;
+    border-color: #008480;
+    color: white;
+}
+
+.btn:hover, .btn-primary:hover {
+    background-color: #072C32;
+    border-color: #072C32;
+    color: white;
+}

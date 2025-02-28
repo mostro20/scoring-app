@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Administration dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="/static/styles.css" /> 
+  </head>
+  <body>
+    <div class="container">
+      <nav class="navbar navbar-expand-lg bg-body-tertiary">
+        <div class="container-fluid">
+          <img src="/static/HNC-logo-lockup-color.svg" alt="Logo" width="250" class="d-inline-block align-text-top">
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+            <div class="navbar-nav">
+              <a class="nav-link active" aria-current="page" href="/admin">Issue assessments</a>
+              <a class="nav-link" href="/admin/assessors">View assessor links</a>
+              <a class="nav-link" href="/admin/scores">Review assessments and publish to Folio</a>
+            </div>
+          </div>
+        </div>
+      </nav>
+      
+      <h1>Create a new assessment</h1>
+      <form method="POST" action="{{ url_for('admin') }}" enctype="multipart/form-data">    
+
+        <div class="mb-3">
+          <label for="assessment_name" class="form-label">Assessment name:</label>
+          <input type="text" class="form-control" id="assessment_name" name="assessment_name" required>
+        </div>
+
+        <div class="mb-3">
+          <label for="applications" class="form-label">Application code (one code per line):</label>
+          <textarea name="applications" id="applications" class="form-control" rows="5" cols="30"></textarea>
+        </div>
+        
+        <div class="mb-3">
+          <label for="criteria" class="form-label">Criteria (Format: description|weight - one per line, seperated by pipe, weight as a percentage):</label>
+          <textarea name="criteria" id="criteria" class="form-control" rows="5" cols="30"></textarea>
+        </div>    
+        
+        <div class="mb-3">
+          <label for="pdf_file" class="form-label">Upload results PDF:</label>
+          <input type="file" class="form-control" name="pdf_file" id="pdf_file" accept="application/pdf">
+        </div>
+        
+        <div class="mb-3">
+          <label for="assessors" class="form-label">Assessor Names (one per line):</label>
+          <textarea name="assessors" id="assessors" class="form-control" rows="5" cols="30"></textarea>
+        </div> 
+
+        <div class="mb-3">
+          <input type="submit" value="Create new assessment" class="btn btn-primary">
+        </div>
+      </form>
+        {% if assessors %}
+        <hr>
+        <h2>Generated Assessor URLs and Access Codes for this Assessment</h2>
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Unique URL</th>
+              <th>Access Code</th>
+            </tr>
+          </thead>
+          <tbody class="table-group-divider">
+          {% for assessor in assessors %}
+            <tr>
+              <td>{{ assessor.name }}</td>
+              <td><a href="{{ url_for('score', token=assessor.unique_token) }}">
+                {{ request.host_url }}score/{{ assessor.unique_token }}
+              </a></td>
+              <td>{{ assessor.access_code }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
+</html>
