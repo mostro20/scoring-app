@@ -23,3 +23,8 @@ h2 {
     border-color: #072C32;
     color: white;
 }
+
+.accordion-button:not(.collapsed) {
+    background-color:#008480;
+    color: white;
+}

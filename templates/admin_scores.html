@@ -56,6 +56,7 @@
                 <th>Score</th>
                 <th>Weighted Score</th>
                 <th>Comment</th>
+                <th>Submission Date</th>
               </tr>
             </thead>
             <tbody class="table-group-divider">
@@ -67,6 +68,7 @@
                 <td>{{ score.score }}</td>
                 <td>{{ weighted }}</td>
                 <td>{{ score.comment }}</td>
+                <td>{{ score.created_at.strftime("%Y-%m-%d %H:%M:%S") if score.created_at else '' }}</td>
               </tr>
               {% endfor %}
             </tbody>

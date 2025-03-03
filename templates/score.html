@@ -20,25 +20,35 @@
             <!-- Accordion to collapse each application section -->
             <div class="accordion" id="appAccordion">
               {% for app in applications %}
-                <div class="accordion-item">
-                  <h2 class="accordion-header" id="heading-{{ app.id }}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app.id }}" aria-expanded="false" aria-controls="collapse-{{ app.id }}">
-                      Application: {{ app.code }}
-                    </button>
-                  </h2>
-                  <div id="collapse-{{ app.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ app.id }}" data-bs-parent="#appAccordion">
-                    <div class="accordion-body">
-                      {% for crit in criteria %}
-                        <div class="mb-3">
-                          <label>{{ crit.description }} (Weight: {{ crit.weight }}%):</label>
-                          <input type="number" class="form-control mb-2" name="score-{{ app.id }}-{{ crit.id }}" min="1" max="10" required>
-                          <input type="text" placeholder="Comments for: {{ crit.description }}" class="form-control" name="comment-{{ app.id }}-{{ crit.id }}">
-                        </div>
-                      {% endfor %}
-                    </div>
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-{{ app.id }}">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app.id }}" aria-expanded="false" aria-controls="collapse-{{ app.id }}">
+                    <strong>Application: {{ app.code }}</strong>
+                  </button>
+                </h2>
+                <div id="collapse-{{ app.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ app.id }}" data-bs-parent="#appAccordion">
+                  <div class="accordion-body">
+                    {% for crit in criteria %}
+                    {% set key = app.id ~ '-' ~ crit.id %}
+                      <div class="mb-3">
+                        <label>
+                          <strong>{{ crit.description }}</strong> <span style="color: #666;">(weighted {{ crit.weight }}%)</span><br>
+                          <small><em>Provide a score of 1-10 for this criteria</em></small>
+                        </label>
+                        <input type="number" class="form-control mb-2" name="score-{{ app.id }}-{{ crit.id }}" min="1" max="10"
+                              value="{{ score_dict[key].score if key in score_dict else '' }}">
+                        <label>
+                          <small><em>Provide comments up to 255 characters for {{ crit.description }}</em></small>
+                        </label>
+                        <input type="text" placeholder="Your comments" class="form-control" name="comment-{{ app.id }}-{{ crit.id }}"
+                              value="{{ score_dict[key].comment if key in score_dict else '' }}">
+                      </div>
+                      <hr>
+                    {% endfor %}
                   </div>
                 </div>
-              {% endfor %}
+              </div>
+            {% endfor %}
             </div>
             <div class="mt-3">
               <input type="submit" value="Submit Scores" class="btn btn-primary">

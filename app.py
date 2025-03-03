@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 
 def create_app():
     app = Flask(__name__)
-    app.config['SECRET_KEY'] = 'XXX'  # Replace with a strong secret key
+    app.config['SECRET_KEY'] = 'XXXX'  # Replace with a strong secret key
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scoring.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -27,7 +27,7 @@ def create_app():
         if not TOKEN_INFO["access_token"] or time.time() >= TOKEN_INFO["expires_at"]:
             print("Fetching new token...")
             response = requests.post(
-                "https://XXX/oauth/token",
+                "https://hncoriginal.sandbox.usefolio.com/oauth/token",
                 data={
                     "client_id": "XXX",
                     "client_secret": "XXX",
@@ -270,29 +270,45 @@ def create_app():
         if 'assessor_id' not in session or session['assessor_id'] != assessor.id:
             return redirect(url_for('assessor_login', token=token))
 
-        assessment_id = assessor.assessment_id
-        # Fetch the assessment (so we can get the PDF filename)
-        assessment = Assessment.query.get(assessment_id)
-        applications = Application.query.filter_by(assessment_id=assessment_id).all()
-        criteria = Criteria.query.filter_by(assessment_id=assessment_id).all()
+        # Get the assessment via the assessor relationship
+        assessment = Assessment.query.get(assessor.assessment_id)
+        # Use the relationships defined in your models (if set up) or query explicitly:
+        applications = Application.query.filter_by(assessment_id=assessment.id).all()
+        criteria = Criteria.query.filter_by(assessment_id=assessment.id).all()
+
+        # Query existing scores for this assessor (if any)
+        existing_scores = Score.query.filter_by(assessor_id=assessor.id).all()
+        score_dict = {}
+        for s in existing_scores:
+            key = f"{s.application_id}-{s.criteria_id}"
+            score_dict[key] = s
 
         if request.method == 'POST':
             for app_entry in applications:
                 for crit in criteria:
-                    score_value = request.form.get(f"score-{app_entry.id}-{crit.id}")
-                    comment = request.form.get(f"comment-{app_entry.id}-{crit.id}")
+                    field_name = f"score-{app_entry.id}-{crit.id}"
+                    score_value = request.form.get(field_name)
+                    comment_field = f"comment-{app_entry.id}-{crit.id}"
+                    comment = request.form.get(comment_field)
+                    # Only process if a score value is provided.
                     if score_value:
                         try:
                             score_int = int(score_value)
                             if 1 <= score_int <= 10:
-                                new_score = Score(
-                                    assessor_id=assessor.id,
-                                    application_id=app_entry.id,
-                                    criteria_id=crit.id,
-                                    score=score_int,
-                                    comment=comment
-                                )
-                                db.session.add(new_score)
+                                key = f"{app_entry.id}-{crit.id}"
+                                if key in score_dict:
+                                    existing = score_dict[key]
+                                    existing.score = score_int
+                                    existing.comment = comment
+                                else:
+                                    new_score = Score(
+                                        assessor_id=assessor.id,
+                                        application_id=app_entry.id,
+                                        criteria_id=crit.id,
+                                        score=score_int,
+                                        comment=comment
+                                    )
+                                    db.session.add(new_score)
                             else:
                                 flash("Score must be between 1 and 10.")
                                 return redirect(url_for('score', token=token))
@@ -300,7 +316,7 @@ def create_app():
                             flash("Invalid score input.")
                             return redirect(url_for('score', token=token))
             db.session.commit()
-            flash("Scores submitted successfully!")
+            flash("Progress saved!")  # or "Scores submitted successfully!" as appropriate.
             return redirect(url_for('score', token=token))
             
         return render_template(
@@ -308,13 +324,13 @@ def create_app():
             token=token,
             assessment=assessment,
             applications=applications,
-            criteria=criteria
+            criteria=criteria,
+            score_dict=score_dict
         )
-
 
     # Create the database tables within the application context
     with app.app_context():
-        db.drop_all()
+        #db.drop_all()
         db.create_all()
 
     return app

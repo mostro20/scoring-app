@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from extensions import db
 
 class Assessment(db.Model):
@@ -38,3 +39,4 @@ class Score(db.Model):
     criteria_id = db.Column(db.Integer, db.ForeignKey('criteria.id'), nullable=False)
     score = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
