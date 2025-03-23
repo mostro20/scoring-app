@@ -28,3 +28,15 @@ h2 {
     background-color:#008480;
     color: white;
 }
+
+.nav-link {
+    margin-left: 1em;
+}
+
+.table-group-divider {
+    border-top: 2px solid #072C32;
+}
+
+hr {
+    border-color:#008480;
+}

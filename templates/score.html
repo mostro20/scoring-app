@@ -12,7 +12,12 @@
       <h1 class="mb-4">Assessment Scoring</h1>
       <p>
         Please open each response and give a score from 1-10 in each criteria. The responses are available in the PDF in the righthand
-        pane. You can view this online or download the PDF if you prefer. The code is available at the top of each response.
+        pane. You can view this online or download the PDF if you prefer. The code is available at the top of each response.<br>
+        {% if assessment.pdf_score_filename %}
+        <a href="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) }}">Download the scoring guide</a>
+        {% else %}
+          <p>No PDF available for this assessment.</p>
+        {% endif %}
       </p>
       <div class="row">
         <div class="col-md-5">
@@ -33,7 +38,7 @@
                       <div class="mb-3">
                         <label>
                           <strong>{{ crit.description }}</strong> <span style="color: #666;">(weighted {{ crit.weight }}%)</span><br>
-                          <small><em>Provide a score of 1-10 for this criteria</em></small>
+                          <small><em>Provide a score of 1-10 for this criteria (whole numbers only)</em></small>
                         </label>
                         <input type="number" class="form-control mb-2" name="score-{{ app.id }}-{{ crit.id }}" min="1" max="10"
                               value="{{ score_dict[key].score if key in score_dict else '' }}">

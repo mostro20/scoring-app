@@ -17,30 +17,33 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
               <div class="navbar-nav">
-                <a class="nav-link active" aria-current="page" href="/admin">Issue assessments</a>
+                <a class="nav-link" aria-current="page" href="/admin">Create new assessment</a>
                 <a class="nav-link" href="/admin/assessors">View assessor links</a>
-                <a class="nav-link" href="/admin/scores">Review assessments and publish to Folio</a>
+                <a class="nav-link active" href="/admin/scores">Review scores and publish to Folio</a>
               </div>
             </div>
           </div>
       </nav>
     <div class="col">
-      <h1>View Scores by Assessment</h1>
-      <form method="POST" action="{{ url_for('admin_scores') }}">
-        <div class="mb-3">
-          <label for="assessment">Select Assessment:</label>
-          <select class="form-select" name="assessment_id" id="assessment" required>
-            <option value="">--Select an assessment--</option>
-            {% for assessment in assessments %}
-              <option value="{{ assessment.id }}"
-                {% if selected_assessment and assessment.id == selected_assessment.id %}selected{% endif %}>
-                {{ assessment.name }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-        <input type="submit" value="Load Scores" class="btn btn-primary">
-      </form>
+      <h1>Review scores and publish to Folio</h1>
+
+        <form method="POST" action="{{ url_for('admin_scores') }}" id="review-scores">
+          <div class="mb-3">
+            <label for="assessment">Select Assessment:</label>
+            <select class="form-select" name="assessment_id" id="assessment" required>
+              <option value="">--Select an assessment--</option>
+              {% for assessment in assessments %}
+                <option value="{{ assessment.id }}"
+                  {% if selected_assessment and assessment.id == selected_assessment.id %}selected{% endif %}>
+                  {{ assessment.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <input type="submit" value="Load Scores" class="btn btn-primary">
+          </div>
+        </form>
 
       {% if selected_assessment %}
         <hr>

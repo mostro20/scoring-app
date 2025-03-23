@@ -17,14 +17,14 @@
               </button>
               <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
                 <div class="navbar-nav">
-                  <a class="nav-link active" aria-current="page" href="/admin">Issue assessments</a>
-                  <a class="nav-link" href="/admin/assessors">View assessor links</a>
-                  <a class="nav-link" href="/admin/scores">Review assessments and publish to Folio</a>
+                  <a class="nav-link" aria-current="page" href="/admin">Create new assessment </a>
+                  <a class="nav-link active" href="/admin/assessors">View assessor links</a>
+                  <a class="nav-link" href="/admin/scores">Review scores and publish to Folio</a>
                 </div>
               </div>
             </div>
         </nav>
-        <h1>View Assessor Links by Assessment</h1>
+        <h1>View assessor web links</h1>
         
         <!-- Form to choose an assessment -->
         <form method="POST" action="{{ url_for('admin_assessors') }}">
@@ -56,7 +56,7 @@
                 <th>Access Code</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="table-group-divider">
                 {% for assessor in assessors %}
                 <tr>
                 <td>{{ assessor.name }}</td>

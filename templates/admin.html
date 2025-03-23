@@ -17,29 +17,43 @@
           </button>
           <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
             <div class="navbar-nav">
-              <a class="nav-link active" aria-current="page" href="/admin">Issue assessments</a>
+              <a class="nav-link active" aria-current="page" href="/admin">Create new assessment</a>
               <a class="nav-link" href="/admin/assessors">View assessor links</a>
-              <a class="nav-link" href="/admin/scores">Review assessments and publish to Folio</a>
+              <a class="nav-link" href="/admin/scores">Review scores and publish to Folio</a>
             </div>
           </div>
         </div>
       </nav>
       
-      <h1>Create a new assessment</h1>
-      <form method="POST" action="{{ url_for('admin') }}" enctype="multipart/form-data">    
+      <h1>Create new assessment</h1>
+      <form method="POST" action="{{ url_for('admin') }}" id="assessor-form" enctype="multipart/form-data">    
 
         <div class="mb-3">
-          <label for="assessment_name" class="form-label">Assessment name:</label>
+          <label for="assessment_name" class="form-label">
+            Assessment name<br>
+            <small><span style="color:#666;">
+              Suggest format of <em>Folio Grant Plan - Grant name</em> for example: <code>GRPR-01 - Flood Recovery Grants 2025</code>
+            </span></small>
+          </label>
           <input type="text" class="form-control" id="assessment_name" name="assessment_name" required>
         </div>
 
         <div class="mb-3">
-          <label for="applications" class="form-label">Application code (one code per line):</label>
+          <label for="applications" class="form-label">
+            Application code<br>
+            <small><span style="color:#666;">
+              One code per line, use the Folio submission codes, for example: <code>GRPR04-01, GRPR04-02</code>
+            </span></small>
+          </label>
           <textarea name="applications" id="applications" class="form-control" rows="5" cols="30"></textarea>
         </div>
         
         <div class="mb-3">
-          <label for="criteria" class="form-label">Criteria (Format: description|weight - one per line, seperated by pipe, weight as a percentage):</label>
+          <label for="criteria" class="form-label">
+            Criteria in the format of <em>description | weight</em>.<br>
+            <small><span style="color:#666;">Examples: <code>Value for money|40</code> or <code>Capacity to deliver grant|30</code><br>
+            One criteria per line ; seperate description from weight with a pipe | ; no puncuation or symbols in criteria, avoid thinigs like: <code>- ; [] " () ,</code> ; weight should be a whole number between 1-100</small></span>
+          </label>
           <textarea name="criteria" id="criteria" class="form-control" rows="5" cols="30"></textarea>
         </div>    
         
@@ -47,9 +61,19 @@
           <label for="pdf_file" class="form-label">Upload results PDF:</label>
           <input type="file" class="form-control" name="pdf_file" id="pdf_file" accept="application/pdf">
         </div>
+
+        <div class="mb-3">
+          <label for="pdf_file_score" class="form-label">Upload scoring guide PDF:</label>
+          <input type="file" class="form-control" name="pdf_file_score" id="pdf_file_score" accept="application/pdf">
+        </div>
         
         <div class="mb-3">
-          <label for="assessors" class="form-label">Assessor Names (one per line):</label>
+          <label for="assessors" class="form-label">
+            Assessor Names (one per line):<br>
+            <small><span style="color:#666;">
+              One assessor per line, use their full name, for example <code>Morgan Strong</code>
+            </span></small>
+          </label>
           <textarea name="assessors" id="assessors" class="form-control" rows="5" cols="30"></textarea>
         </div> 
 
@@ -81,8 +105,17 @@
           </tbody>
         </table>
       {% endif %}
-
+        <br><br>
+        <hr>
+        <br><br>
     </div>
+    <script>
+        document.getElementById('assessor-form').addEventListener('submit', function(e) {
+          // to do, hide the submitted form
+          var hideSubmittedForm = document.getElementById('assessor-form');
+          hideSubmittedForm.show();
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
 </html>

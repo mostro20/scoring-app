@@ -1,13 +1,20 @@
 # app.py
 import os, secrets, time, requests, json
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory, jsonify
+from flask import Flask, session, render_template, request, redirect, url_for, flash, session, send_from_directory, jsonify
 from extensions import db
+from functools import wraps
 import models
+import time
+from itsdangerous import URLSafeSerializer
+from datetime import timedelta
 from werkzeug.utils import secure_filename
 
 def create_app():
     app = Flask(__name__)
-    app.config['SECRET_KEY'] = 'XXXX'  # Replace with a strong secret key
+    app.config['SECRET_KEY'] = 'XXX'  # Replace with a strong secret key
+    app.config['ADMIN_KEYPHRASE'] = 'XXX'
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+    serializer = URLSafeSerializer(app.config['SECRET_KEY'])
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scoring.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -27,7 +34,7 @@ def create_app():
         if not TOKEN_INFO["access_token"] or time.time() >= TOKEN_INFO["expires_at"]:
             print("Fetching new token...")
             response = requests.post(
-                "https://hncoriginal.sandbox.usefolio.com/oauth/token",
+                "XXX",
                 data={
                     "client_id": "XXX",
                     "client_secret": "XXX",
@@ -42,12 +49,37 @@ def create_app():
                 return {"error": "Failed to fetch token", "details": response.text}, 500
         return TOKEN_INFO["access_token"]
 
+    def admin_login_required(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not session.get('admin_authenticated'):
+                # Redirect to a login page and pass the next parameter so you can redirect back after login.
+                return redirect(url_for('admin_login', next=request.url))
+            return f(*args, **kwargs)
+        return decorated_function
+
+    @app.route('/admin/login', methods=['GET', 'POST'])
+    def admin_login():
+        if request.method == 'POST':
+            keyphrase = request.form.get('keyphrase')
+            if keyphrase == app.config.get('ADMIN_KEYPHRASE', 'your_default_keyphrase'):
+                session['admin_authenticated'] = True
+                session.permanent = True
+                flash("Logged in successfully!")
+                next_url = request.args.get('next')
+                return redirect(next_url or url_for('admin'))
+            else:
+                flash("Invalid keyphrase. Please try again.")
+                return redirect(url_for('admin_login'))
+        return render_template('admin_login.html')
+
     @app.route('/')
     def index():
         return render_template('index.html')
 
 
     @app.route('/admin', methods=['GET', 'POST'])
+    @admin_login_required
     def admin():
         from werkzeug.utils import secure_filename  # Ensure this is imported
         if request.method == 'POST':
@@ -90,6 +122,15 @@ def create_app():
                 pdf.save(filepath)
                 new_assessment.pdf_filename = filename
             
+            # Process 2nd PDF Upload (if needed)
+            pdf_score = request.files.get('pdf_file_score')
+            if pdf_score:
+                filename = secure_filename(pdf_score.filename)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                pdf_score.save(filepath)
+                new_assessment.pdf_score_filename = filename
+
+
             # Process Assessors (tied to this assessment)
             assessors_raw = request.form.get('assessors')
             if assessors_raw:
@@ -114,6 +155,7 @@ def create_app():
         return render_template('admin.html', assessors=assessors)
 
     @app.route('/admin/scores', methods=['GET', 'POST'])
+    @admin_login_required
     def admin_scores():
         # Get all assessments to populate the dropdown.
         assessments = Assessment.query.order_by(Assessment.name).all()
@@ -148,6 +190,7 @@ def create_app():
         )
     
     @app.route('/admin/scores/publish', methods=['POST'])
+    @admin_login_required
     def publish_scores():
         # Get data from the publish form:
         assessment_id = request.form.get('assessment_id')
@@ -198,7 +241,7 @@ def create_app():
             folioId: "{folio_id}",
             fieldResponses: [
                 {{
-                fieldId: "XXX", 
+                fieldId: "MDBGaWVsZC0yODQzNA", 
                 text: {json.dumps(table_html)}
                 }}
             ]
@@ -223,6 +266,7 @@ def create_app():
         return jsonify(mutation_response.json())
     
     @app.route('/admin/assessors', methods=['GET', 'POST'])
+    @admin_login_required
     def admin_assessors():
         # Query all assessments to populate the dropdown.
         assessments = Assessment.query.order_by(Assessment.name).all()
@@ -327,6 +371,95 @@ def create_app():
             criteria=criteria,
             score_dict=score_dict
         )
+
+    ## Now add the contact verification process
+    # Route to generate an obfuscated token from a folio key (for admin use)
+    @app.route("/generate/<folio_key>")
+    @admin_login_required
+    def generate_token(folio_key):
+        token = serializer.dumps(folio_key)
+        return f"Token for {folio_key}: <a href='/link/{token}'>/link/{token}</a>"
+
+    # New route that uses a token (instead of a plain folio key) in the URL.
+    @app.route("/link/<token>")
+    def folio_page(token):
+        try:
+            # Decode the token to retrieve the original folio key.
+            folio_key = serializer.loads(token)
+        except Exception as e:
+            return f"Invalid token: {str(e)}", 400
+
+        token_api = get_token()
+        if isinstance(token_api, dict) and token_api.get("error"):
+            return f"Error fetching token: {token_api['error']}", 500
+
+        headers = {"Authorization": f"Bearer {token_api}"}
+
+        # Query for the entity using the folio key.
+        query_entity = """
+        query GetEntity($folioKey: String!) {
+        folios(key: $folioKey) {
+            nodes {
+            entities {
+                nodes {
+                id
+                name
+                }
+            }
+            }
+        }
+        }
+        """
+        variables = {"folioKey": folio_key}
+        res_entity = requests.post(
+            GRAPHQL_URL,
+            json={"query": query_entity, "variables": variables},
+            headers=headers
+        )
+
+        if res_entity.status_code != 200:
+            return f"Error fetching folio: {res_entity.text}", res_entity.status_code
+
+        data_entity = res_entity.json()
+        try:
+            entity = data_entity["data"]["folios"]["nodes"][0]["entities"]["nodes"][0]
+            entity_id = entity["id"]
+        except (KeyError, IndexError):
+            return f"Entity not found for folio key: {folio_key}", 404
+
+        # Query for contacts using the entity's ID.
+        query_contacts = """
+        query GetContacts($entityIds: [ID!]!) {
+        contacts(first: 10, entityIds: $entityIds) {
+            edges {
+            node {
+                id
+                name
+                telephone
+                email
+            }
+            }
+        }
+        }
+        """
+        variables = {"entityIds": [entity_id]}
+        res_contacts = requests.post(
+            GRAPHQL_URL,
+            json={"query": query_contacts, "variables": variables},
+            headers=headers
+        )
+
+        if res_contacts.status_code != 200:
+            return f"Error fetching contacts: {res_contacts.text}", res_contacts.status_code
+
+        data_contacts = res_contacts.json()
+        try:
+            contacts = [edge["node"] for edge in data_contacts["data"]["contacts"]["edges"]]
+        except (KeyError, TypeError):
+            contacts = []
+
+        return render_template("folio.html", folio_key=folio_key, entity=entity, contacts=contacts)
+
 
     # Create the database tables within the application context
     with app.app_context():
