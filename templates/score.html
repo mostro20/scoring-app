@@ -12,7 +12,7 @@
       <h1 class="mb-4">Assessment Scoring</h1>
       <p>
         Please open each response and give a score from 1-10 in each criteria. The responses are available in the PDF in the righthand
-        pane. You can view this online or download the PDF if you prefer. The code is available at the top of each response.<br>
+        pane. You can view this online or download the PDF if you prefer. The response code (e.g. GRPR04-01) is available at the top of each response.<br>
         {% if assessment.pdf_score_filename %}
         <a href="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) }}">Download the scoring guide</a>
         {% else %}
@@ -43,9 +43,9 @@
                         <input type="number" class="form-control mb-2" name="score-{{ app.id }}-{{ crit.id }}" min="1" max="10"
                               value="{{ score_dict[key].score if key in score_dict else '' }}">
                         <label>
-                          <small><em>Provide comments up to 255 characters for {{ crit.description }}</em></small>
+                          <small><em>Provide remarks up to 255 characters for {{ crit.description }}</em></small>
                         </label>
-                        <input type="text" placeholder="Your comments" class="form-control" name="comment-{{ app.id }}-{{ crit.id }}"
+                        <input type="text" placeholder="Your remarks" class="form-control" name="comment-{{ app.id }}-{{ crit.id }}"
                               value="{{ score_dict[key].comment if key in score_dict else '' }}">
                       </div>
                       <hr>

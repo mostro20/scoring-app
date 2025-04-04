@@ -34,7 +34,7 @@ def create_app():
         if not TOKEN_INFO["access_token"] or time.time() >= TOKEN_INFO["expires_at"]:
             print("Fetching new token...")
             response = requests.post(
-                "XXX",
+                "https://hncoriginal.sandbox.usefolio.com/oauth/token",
                 data={
                     "client_id": "XXX",
                     "client_secret": "XXX",
@@ -157,7 +157,6 @@ def create_app():
     @app.route('/admin/scores', methods=['GET', 'POST'])
     @admin_login_required
     def admin_scores():
-        # Get all assessments to populate the dropdown.
         assessments = Assessment.query.order_by(Assessment.name).all()
         selected_assessment = None
         raw_scores = []
@@ -166,8 +165,6 @@ def create_app():
             selected_assessment_id = request.form.get('assessment_id')
             if selected_assessment_id:
                 selected_assessment = Assessment.query.get(selected_assessment_id)
-                # Join Score with Assessor, Application, and Criteria,
-                # but restrict to those tied to the selected assessment.
                 raw_scores = (
                     db.session.query(Score, Assessor, Application, Criteria)
                     .join(Assessor, Score.assessor_id == Assessor.id)
@@ -176,17 +173,36 @@ def create_app():
                     .filter(Assessor.assessment_id == selected_assessment.id)
                     .all()
                 )
-        scores = []
+        
+        # Detailed scores list (for original table)
+        detailed_scores = []
+        # Group responses by application to compute summary (grouped by KEY)
+        grouped = {}
+        
         for score, assessor, application, criteria in raw_scores:
-            weighted = (score.score * criteria.weight)/100
-            scores.append((score, assessor, application, criteria, weighted))
-
-
+            weighted = (score.score * criteria.weight) / 100
+            detailed_scores.append((score, assessor, application, criteria, weighted))
+            app_key = application.id  # grouping by application id (KEY)
+            if app_key not in grouped:
+                grouped[app_key] = {
+                    "application": application,
+                    "total_weighted": 0,
+                    "assessors": set(),
+                    "count": 0
+                }
+            grouped[app_key]["total_weighted"] += weighted
+            grouped[app_key]["count"] += 1
+            grouped[app_key]["assessors"].add(assessor.id) 
+        
+        # Sorted grouped list: highest total score first.
+        grouped_scores = sorted(grouped.values(), key=lambda x: x["total_weighted"], reverse=True)
+        
         return render_template(
             'admin_scores.html',
             assessments=assessments,
             selected_assessment=selected_assessment,
-            scores=scores
+            detailed_scores=detailed_scores,
+            grouped_scores=grouped_scores
         )
     
     @app.route('/admin/scores/publish', methods=['POST'])
@@ -195,9 +211,10 @@ def create_app():
         # Get data from the publish form:
         assessment_id = request.form.get('assessment_id')
         form_key = request.form.get('form_key')
+        round_field_id = request.form.get('round')  # New: selected round's field ID
         table_html = request.form.get('table_html')
 
-        if not all([assessment_id, form_key, table_html]):
+        if not all([assessment_id, form_key, round_field_id, table_html]):
             return jsonify({"error": "Missing required fields"}), 400
 
         # Get an API token
@@ -233,7 +250,6 @@ def create_app():
         folio_id = nodes[0]["id"]
 
         # 2. Send the mutation to update the folio with the table HTML.
-        # Note: json.dumps(table_html) ensures that any quotes in the HTML are escaped.
         mutation = f"""
         mutation {{
         updateFolio(
@@ -241,7 +257,7 @@ def create_app():
             folioId: "{folio_id}",
             fieldResponses: [
                 {{
-                fieldId: "MDBGaWVsZC0yODQzNA", 
+                fieldId: "{round_field_id}", 
                 text: {json.dumps(table_html)}
                 }}
             ]
@@ -263,7 +279,9 @@ def create_app():
         if mutation_response.status_code != 200:
             return jsonify({"error": "Failed to update folio", "details": mutation_response.text}), mutation_response.status_code
 
-        return jsonify(mutation_response.json())
+        # Pretty-print the JSON response.
+        result = json.dumps(mutation_response.json(), indent=2)
+        return render_template('publish_result.html', result=result)
     
     @app.route('/admin/assessors', methods=['GET', 'POST'])
     @admin_login_required

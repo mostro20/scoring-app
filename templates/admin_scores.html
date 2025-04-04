@@ -17,7 +17,7 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
               <div class="navbar-nav">
-                <a class="nav-link" aria-current="page" href="/admin">Create new assessment</a>
+                <a class="nav-link" aria-current="page" href="/admin">Create new evaluation</a>
                 <a class="nav-link" href="/admin/assessors">View assessor links</a>
                 <a class="nav-link active" href="/admin/scores">Review scores and publish to Folio</a>
               </div>
@@ -47,10 +47,35 @@
 
       {% if selected_assessment %}
         <hr>
+        <div id="publish-content">
         <h2>Scores for Assessment: {{ selected_assessment.name }}</h2>
         <!-- Wrap the table in a div with an id -->
         <div id="scores-table">
           <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>Application Code</th>
+                <th>Total Weighted Score</th>
+                <th>Number of Criteria Completed</th>
+                <th>Number of assessors</th>
+              </tr>
+            </thead>
+            <tbody class="table-group-divider">
+              {% for group in grouped_scores %}
+              <tr>
+                <td>{{ group.application.code }}</td>
+                <td>{{ group.total_weighted | round(2) }}</td>
+                <td>{{ group.count }}</td>
+                <td>{{ group.assessors | length }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+
+          <hr>
+        
+          <h2>Detailed Scores</h2>
+          <table class="table table-bordered">
             <thead>
               <tr>
                 <th>Assessor</th>
@@ -62,36 +87,48 @@
                 <th>Submission Date</th>
               </tr>
             </thead>
-            <tbody class="table-group-divider">
-              {% for score, assessor, application, criteria, weighted in scores %}
-              <tr>
-                <td>{{ assessor.name }}</td>
-                <td>{{ application.code }}</td>
-                <td>{{ criteria.description }}</td>
-                <td>{{ score.score }}</td>
-                <td>{{ weighted }}</td>
-                <td>{{ score.comment }}</td>
-                <td>{{ score.created_at.strftime("%Y-%m-%d %H:%M:%S") if score.created_at else '' }}</td>
-              </tr>
+            <tbody>
+              {% for score, assessor, application, criteria, weighted in detailed_scores %}
+                <tr>
+                  <td>{{ assessor.name }}</td>
+                  <td>{{ application.code }}</td>
+                  <td>{{ criteria.description }}</td>
+                  <td>{{ score.score }}</td>
+                  <td>{{ weighted | round(2) }}</td>
+                  <td>{{ score.comment }}</td>
+                  <td>{{ score.created_at.strftime("%Y-%m-%d %H:%M:%S") if score.created_at else '' }}</td>
+                </tr>
               {% endfor %}
             </tbody>
           </table>
+        </div>
         </div>
 
         
         <h2>Publish Scores</h2>
         <p>This will publish the results of the assessment directly to Folio.</p>
         <!-- Publish form -->
-        <form method="POST" action="{{ url_for('publish_scores') }}" id="publish-form"  class="form-floating">
-          <!-- Pass along the assessment id -->
+        <form method="POST" action="{{ url_for('publish_scores') }}" id="publish-form" class="form-floating">
           <div class="mb-3">
+            <!-- Pass along the assessment id -->
             <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
-            <!-- Let admin enter the form key -->
-            <label for="form_key">Enter Folio Key:</label>
+            <!-- Let admin enter the Folio key -->
+            <label for="form_key" class="form-label">Enter Folio Key:</label>
             <input type="text" class="form-control" name="form_key" id="form_key" value="GRPR-XX" required>
-            <!-- Hidden field for the table HTML -->
-            <input type="hidden" name="table_html" id="table_html">
           </div>
+          <div class="mb-3">
+            <!-- Dropdown for selecting the round -->
+            <label for="round" class="form-label">Select Round:</label>
+            <select name="round" id="round" class="form-select" required>
+              <option value="MDBGaWVsZC0yODQzNA">Round 1</option>
+              <option value="FIELD_ID_ROUND_2">Round 2</option>
+              <option value="FIELD_ID_ROUND_3">Round 3</option>
+              <option value="FIELD_ID_ROUND_4">Round 4</option>
+              <option value="FIELD_ID_ROUND_5">Round 5</option>
+            </select>
+          </div>
+          <!-- Hidden field for the combined HTML -->
+          <input type="hidden" name="table_html" id="table_html">
           <div class="mb-3">
             <input type="submit" value="Publish Scores" class="btn btn-primary">
           </div>

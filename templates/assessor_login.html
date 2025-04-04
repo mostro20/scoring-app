@@ -13,7 +13,10 @@
       <form method="POST" action="{{ url_for('assessor_login', token=token) }}">
         <div class="mb-3">
           <label for="access_code" class="form-label">Enter Access Code:</label>
-          <input type="text" class="form-control" name="access_code" id="access_code" required>
+          <input type="password" class="form-control" name="access_code" id="access_code" aria-describedby="passwordHelpBlock" required>
+          <div id="passwordHelpBlock" class="form-text">
+            You will have been SMS'd a unique access code from the HNC manager. Please enter this passphrase.
+          </div>
         </div>
         <div class="mb-3">
           <input type="submit" value="Enter access code" class="btn btn-primary">
