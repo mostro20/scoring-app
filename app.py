@@ -8,20 +8,25 @@ import time
 from itsdangerous import URLSafeSerializer
 from datetime import timedelta
 from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
+load_dotenv('.env')
 
 def create_app():
     app = Flask(__name__)
-    app.config['SECRET_KEY'] = 'XXX'  # Replace with a strong secret key
-    app.config['ADMIN_KEYPHRASE'] = 'XXX'
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+    app.config['ADMIN_KEYPHRASE'] = os.getenv('ADMIN_KEYPHRASE')
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
     serializer = URLSafeSerializer(app.config['SECRET_KEY'])
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scoring.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['UPLOAD_FOLDER'] = 'uploads'
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    API_URL       = os.getenv('api_url_var')
+    CLIENT_ID     = os.getenv('client_id_var')
+    CLIENT_SECRET = os.getenv('client_secret_var')
 
     TOKEN_INFO = {"access_token": None, "expires_at": 0}
-    GRAPHQL_URL = "XXX"
+    GRAPHQL_URL = "https://hncoriginal.sandbox.usefolio.com/graphql"
     
     # Initialize the shared SQLAlchemy instance with this app
     db.init_app(app)
@@ -34,10 +39,10 @@ def create_app():
         if not TOKEN_INFO["access_token"] or time.time() >= TOKEN_INFO["expires_at"]:
             print("Fetching new token...")
             response = requests.post(
-                "https://hncoriginal.sandbox.usefolio.com/oauth/token",
+                API_URL,
                 data={
-                    "client_id": "XXX",
-                    "client_secret": "XXX",
+                    "client_id": CLIENT_ID,
+                    "client_secret": CLIENT_SECRET,
                     "grant_type": "client_credentials"
                 }
             )
