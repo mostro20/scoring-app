@@ -26,7 +26,7 @@ def create_app():
     CLIENT_SECRET = os.getenv('client_secret_var')
 
     TOKEN_INFO = {"access_token": None, "expires_at": 0}
-    GRAPHQL_URL = "https://hncoriginal.sandbox.usefolio.com/graphql"
+    GRAPHQL_URL = os.getenv('graph_api_url')
     
     # Initialize the shared SQLAlchemy instance with this app
     db.init_app(app)
