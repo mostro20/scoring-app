@@ -94,9 +94,12 @@ def create_app():
                 flash("Please provide an assessment name.")
                 return redirect(url_for('admin'))
             
-            new_assessment = Assessment(name=assessment_name)
+            new_assessment = Assessment(
+                name=assessment_name,
+                sharepoint_dir=request.form.get('sharepoint_dir')  # add it here
+            )
             db.session.add(new_assessment)
-            db.session.commit()  # Commit to get new_assessment.id
+            db.session.flush()  # Commit to get new_assessment.id
 
             # Process Application Codes (tied to this assessment)
             apps_raw = request.form.get('applications')
@@ -135,6 +138,9 @@ def create_app():
                 pdf_score.save(filepath)
                 new_assessment.pdf_score_filename = filename
 
+            sharepoint_dir = request.form.get('sharepoint_dir')
+            if sharepoint_dir:
+                new_assessment.sharepoint_dir = sharepoint_dir 
 
             # Process Assessors (tied to this assessment)
             assessors_raw = request.form.get('assessors')
@@ -209,6 +215,29 @@ def create_app():
             detailed_scores=detailed_scores,
             grouped_scores=grouped_scores
         )
+    
+    @app.route('/admin/edit-score/<int:score_id>', methods=['POST'])
+    @admin_login_required
+    def edit_score(score_id):
+        score = Score.query.get_or_404(score_id)
+        try:
+            new_score = int(request.form.get('score'))
+            new_comment = request.form.get('comment')
+
+            # Optional: validate score bounds again
+            if not (1 <= new_score <= 10):
+                flash("Score must be between 1 and 10.")
+                return redirect(url_for('admin_scores'))
+
+            score.score = new_score
+            score.comment = new_comment
+            db.session.commit()
+            flash(f"Score updated for Assessor {score.assessor_id} - Application {score.application_id}.")
+        except Exception as e:
+            db.session.rollback()
+            flash("An error occurred while updating the score.")
+
+        return redirect(url_for('admin_scores'))
     
     @app.route('/admin/scores/publish', methods=['POST'])
     @admin_login_required

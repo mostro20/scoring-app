@@ -6,7 +6,8 @@ class Assessment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     pdf_filename = db.Column(db.String(255), nullable=True) 
-    pdf_score_filename = db.Column(db.String(255), nullable=True) 
+    pdf_score_filename = db.Column(db.String(255), nullable=True)
+    sharepoint_dir = db.Column(db.String(255), nullable=True) 
 
 class Application(db.Model):
     __tablename__ = 'application'

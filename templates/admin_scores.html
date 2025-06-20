@@ -85,18 +85,30 @@
                 <th>Weighted Score</th>
                 <th>Comment</th>
                 <th>Submission Date</th>
+                <th>Edit</th>
               </tr>
             </thead>
             <tbody>
               {% for score, assessor, application, criteria, weighted in detailed_scores %}
                 <tr>
-                  <td>{{ assessor.name }}</td>
-                  <td>{{ application.code }}</td>
-                  <td>{{ criteria.description }}</td>
-                  <td>{{ score.score }}</td>
-                  <td>{{ weighted | round(2) }}</td>
-                  <td>{{ score.comment }}</td>
-                  <td>{{ score.created_at.strftime("%Y-%m-%d %H:%M:%S") if score.created_at else '' }}</td>
+                  <form method="POST" action="{{ url_for('edit_score', score_id=score.id) }}">
+                    <td>{{ assessor.name }}</td>
+                    <td>{{ application.code }}</td>
+                    <td>{{ criteria.description }}</td>
+                    <td>
+                      <input type="number" name="score" min="1" max="10" step="1"
+                            class="form-control" value="{{ score.score }}" required>
+                    </td>
+                    <td>{{ weighted | round(2) }}</td>
+                    <td>
+                      <input type="text" name="comment" class="form-control"
+                            value="{{ score.comment }}" maxlength="255" required>
+                    </td>
+                    <td>{{ score.created_at.strftime("%Y-%m-%d %H:%M:%S") if score.created_at else '' }}</td>
+                    <td>
+                      <button type="submit" class="btn btn-sm btn-primary">Update</button>
+                    </td>
+                  </form>
                 </tr>
               {% endfor %}
             </tbody>
@@ -121,10 +133,10 @@
             <label for="round" class="form-label">Select Round:</label>
             <select name="round" id="round" class="form-select" required>
               <option value="MDBGaWVsZC0yODQzNA">Round 1</option>
-              <option value="FIELD_ID_ROUND_2">Round 2</option>
-              <option value="FIELD_ID_ROUND_3">Round 3</option>
-              <option value="FIELD_ID_ROUND_4">Round 4</option>
-              <option value="FIELD_ID_ROUND_5">Round 5</option>
+              <option value="MDBGaWVsZC0yODQ2OQ">Round 2</option>
+              <option value="MDBGaWVsZC0yODQ3MQ">Round 3</option>
+              <option value="MDBGaWVsZC0yODQ3Mw">Round 4</option>
+              <option value="MDBGaWVsZC0yODQ3NQ">Round 5</option>
             </select>
           </div>
           <!-- Hidden field for the combined HTML -->
