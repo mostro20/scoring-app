@@ -31,7 +31,7 @@
         <div class="mb-3">
           <label for="assessment">Select Assessment to edit:</label>
           <select id="assessment" name="assessment_id" class="form-select">
-            <option value="">-- Create new --</option>
+            <option value="">-- Edit existing assessment --</option>
             {% for a in assessments %}
             <option value="{{ a.id }}"
               {% if selected_assessment and a.id == selected_assessment.id %}selected{% endif %}>
@@ -39,6 +39,7 @@
             </option>
             {% endfor %}
           </select>
+          <p class="small text-muted">Leave blank to create a new assessment</p>
         </div>
         <button class="btn btn-secondary">Load</button>
       </form>
