@@ -1,0 +1,46 @@
+@media print {
+  /* 1) Force all accordions open */
+  .accordion-collapse.collapse {
+    display: block !important;
+    height: auto    !important;
+    visibility: visible !important;
+  }
+
+  /* 2) Strip out the accordion toggle UI */
+  .accordion-button {
+    background: none !important;
+    border: none     !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+    color: black;
+  }
+  .accordion-button::after {
+    display: none !important;
+  }
+
+  .accordion-header {
+    color: black;
+  }
+
+  /* 3) Turn your form inputs into plain text */
+  input.form-control,
+  textarea.form-control {
+    border: none        !important;
+    background: transparent !important;
+    box-shadow: none    !important;
+  }
+
+  /* 4) Hide anything that isn’t content */
+  .form-text,   /* bootstrap’s small help text */
+  .hide-from-print-summary
+  {
+    display: none !important;
+  }
+
+  .col-md-5 {
+    /* for flex-based grid (Bootstrap 4/5) */
+    flex: 0 0 100% !important;
+    max-width: 100%  !important;
+    width: 100%      !important;
+  }
+}

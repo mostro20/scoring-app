@@ -42,3 +42,4 @@ class Score(db.Model):
     score = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    finalised = db.Column(db.Boolean, default=False, nullable=False)

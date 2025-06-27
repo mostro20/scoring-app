@@ -366,6 +366,9 @@ def create_app():
         if 'assessor_id' not in session or session['assessor_id'] != assessor.id:
             return redirect(url_for('assessor_login', token=token))
 
+        if request.method == 'POST':
+            action = request.form.get('action')  # will be 'save' or 'finalise'
+
         # Get the assessment via the assessor relationship
         assessment = Assessment.query.get(assessor.assessment_id)
         # Use the relationships defined in your models (if set up) or query explicitly:
@@ -411,17 +414,41 @@ def create_app():
                         except ValueError:
                             flash("Invalid score input.")
                             return redirect(url_for('score', token=token))
+            # if they clicked “Submit and finalise…”
+            if action == 'finalise':
+                # mark every one of this assessor’s scores as final
+                for s in Score.query.filter_by(assessor_id=assessor.id):
+                    s.finalised = True
+
             db.session.commit()
-            flash("Progress saved!")  # or "Scores submitted successfully!" as appropriate.
+            # flash feedback for the modal
+            if action == 'save':
+                flash('Your progress has been saved. You can come back to this submission at any time and continue editing. Simply use the link that was provided by the admin to log back in and access the evaluation portal')
+            elif action == 'finalise':
+                flash('Your scores have been finalised and submitted. You can return to the portal at any time to view your final scores.')
             return redirect(url_for('score', token=token))
-            
+
+
+        # --- new: compute weighted totals for each application ---
+        weighted_scores = {}
+        for app_entry in applications:
+            total = 0
+            for crit in criteria:
+                key = f"{app_entry.id}-{crit.id}"
+                if key in score_dict:
+                    # note: score_dict[key].score is the integer 1–10
+                    total += (score_dict[key].score * crit.weight) / 10
+            # round or int‐cast as you prefer
+            weighted_scores[app_entry.id] = round(total, 2)
+
         return render_template(
             'score.html',
             token=token,
             assessment=assessment,
             applications=applications,
             criteria=criteria,
-            score_dict=score_dict
+            score_dict=score_dict,
+            weighted_scores=weighted_scores
         )
 
     ## Now add the contact verification process
