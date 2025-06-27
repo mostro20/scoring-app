@@ -87,83 +87,103 @@ def create_app():
     @admin_login_required
     def admin():
         from werkzeug.utils import secure_filename  # Ensure this is imported
+        assessments = Assessment.query.order_by(Assessment.name).all()
+        selected = None
+        apps_txt = criteria_txt = assessors_txt = sharepoint_dir = ''
+
+        if request.method == 'GET':
+            aid = request.args.get('assessment_id')
+            if aid:
+                selected = Assessment.query.get(aid)
+                # build newline-delimited strings for textareas
+                apps_txt = '\n'.join(a.code for a in selected.applications)
+                criteria_txt = '\n'.join(f"{c.description}|{c.weight}" for c in selected.criteria)
+                assessors_txt = '\n'.join(m.name for m in selected.assessors)
+                sharepoint_dir = selected.sharepoint_dir
+
         if request.method == 'POST':
-            # Create a new assessment session first
-            assessment_name = request.form.get('assessment_name')
-            if not assessment_name:
-                flash("Please provide an assessment name.")
-                return redirect(url_for('admin'))
+            aid = request.form.get('assessment_id')
+            name = request.form['assessment_name']
+            apps_raw      = request.form.get('applications','').strip().splitlines()
             
-            new_assessment = Assessment(
-                name=assessment_name,
-                sharepoint_dir=request.form.get('sharepoint_dir')  # add it here
-            )
-            db.session.add(new_assessment)
-            db.session.flush()  # Commit to get new_assessment.id
+            criteria_raw  = request.form.get('criteria','').strip().splitlines()
+            assessors_raw = request.form.get('assessors','').strip().splitlines()
+            sharepoint_dir= request.form['sharepoint_dir']
 
-            # Process Application Codes (tied to this assessment)
-            apps_raw = request.form.get('applications')
-            if apps_raw:
-                for line in apps_raw.strip().splitlines():
-                    code = line.strip()
-                    if code and not Application.query.filter_by(code=code, assessment_id=new_assessment.id).first():
-                        db.session.add(Application(code=code, assessment_id=new_assessment.id))
-            
-            # Process Criteria (tied to this assessment)
-            criteria_raw = request.form.get('criteria')
-            if criteria_raw:
-                for line in criteria_raw.strip().splitlines():
-                    parts = line.split('|')
-                    if len(parts) == 2:
-                        description = parts[0].strip()
-                        try:
-                            weight = float(parts[1].strip())
-                            db.session.add(Criteria(description=description, weight=weight, assessment_id=new_assessment.id))
-                        except ValueError:
-                            pass  # handle invalid weight
+            # load or create the Assessment
+            if aid:
+                selected = Assessment.query.get(aid)
+                selected.name = name
+                selected.sharepoint_dir = sharepoint_dir
+            else:
+                selected = Assessment(name=name, sharepoint_dir=sharepoint_dir)
+                db.session.add(selected)
+                db.session.flush()  # so selected.id is available
 
-            # Process PDF Upload (if needed)
-            pdf = request.files.get('pdf_file')
-            if pdf:
-                filename = secure_filename(pdf.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                pdf.save(filepath)
-                new_assessment.pdf_filename = filename
-            
-            # Process 2nd PDF Upload (if needed)
-            pdf_score = request.files.get('pdf_file_score')
-            if pdf_score:
-                filename = secure_filename(pdf_score.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                pdf_score.save(filepath)
-                new_assessment.pdf_score_filename = filename
+            # ----- Applications -----
+            # remove old apps, add new
+            selected.applications[:] = []
+            for code in apps_raw:
+                code = code.strip()
+                if code:
+                    selected.applications.append(
+                        Application(code=code, assessment_id=selected.id)
+                    )
 
-            sharepoint_dir = request.form.get('sharepoint_dir')
-            if sharepoint_dir:
-                new_assessment.sharepoint_dir = sharepoint_dir 
+            # ----- Criteria -----
+            selected.criteria[:] = []
+            for line in criteria_raw:
+                parts = line.split('|', 1)
+                if len(parts) == 2:
+                    desc = parts[0].strip()
+                    try:
+                        wt = int(parts[1].strip())
+                    except ValueError:
+                        continue
+                    selected.criteria.append(
+                        Criteria(description=desc, weight=wt, assessment_id=selected.id)
+                    )
 
-            # Process Assessors (tied to this assessment)
-            assessors_raw = request.form.get('assessors')
-            if assessors_raw:
-                for line in assessors_raw.strip().splitlines():
-                    name = line.strip()
-                    if name:
-                        token = secrets.token_urlsafe(16)
-                        access_code = secrets.token_hex(4)
-                        assessor = Assessor(name=name, unique_token=token, access_code=access_code, assessment_id=new_assessment.id)
-                        db.session.add(assessor)
+            # ----- Assessors -----
+            selected.assessors[:] = []
+            for name in assessors_raw:
+                nm = name.strip()
+                if not nm:
+                    continue
+                token      = secrets.token_urlsafe(16)
+                access_code= secrets.token_hex(4)
+                selected.assessors.append(
+                    Assessor(
+                    name=nm,
+                    unique_token=token,
+                    access_code=access_code,
+                    assessment_id=selected.id
+                    )
+                )
+
+            # ----- PDF uploads -----
+            for field, attr in (('pdf_file', 'pdf_filename'),
+                                ('pdf_file_score', 'pdf_score_filename')):
+                f = request.files.get(field)
+                if f and f.filename:
+                    fn = secure_filename(f.filename)
+                    dest = os.path.join(app.config['UPLOAD_FOLDER'], fn)
+                    f.save(dest)
+                    setattr(selected, attr, fn)
             
             db.session.commit()
-            flash("Data submitted successfully!")
-            # Redirect with assessment_id so that the admin page shows only this session’s assessors.
-            return redirect(url_for('admin', assessment_id=new_assessment.id))
-        
-        # On GET, if an assessment_id is provided, show only that assessment's assessors.
-        assessment_id = request.args.get('assessment_id')
-        assessors = []
-        if assessment_id:
-            assessors = Assessor.query.filter_by(assessment_id=assessment_id).all()
-        return render_template('admin.html', assessors=assessors)
+            flash(aid and "Assessment updated successfully." or "New assessment created.")
+            return redirect(url_for('admin', assessment_id=selected.id))
+
+        return render_template(
+            'admin.html',
+            assessments=assessments,
+            selected_assessment=selected,
+            applications_text=apps_txt,
+            criteria_text=criteria_txt,
+            assessors_text=assessors_txt,
+            sharepoint_dir=sharepoint_dir,
+        )
 
     @app.route('/admin/scores', methods=['GET', 'POST'])
     @admin_login_required

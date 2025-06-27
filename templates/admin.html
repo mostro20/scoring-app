@@ -17,7 +17,7 @@
           </button>
           <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
             <div class="navbar-nav">
-              <a class="nav-link active" aria-current="page" href="/admin">Create new evaluation</a>
+              <a class="nav-link active" aria-current="page" href="/admin">Create/edit assessments</a>
               <a class="nav-link" href="/admin/assessors">View assessor links</a>
               <a class="nav-link" href="/admin/scores">Review scores and publish to Folio</a>
             </div>
@@ -25,99 +25,121 @@
         </div>
       </nav>
       
-      <h1>Create new assessment</h1>
-      <form method="POST" action="{{ url_for('admin') }}" id="assessor-form" enctype="multipart/form-data">    
+      <h1>Create / edit assessments</h1>
+      <!-- 1) selector form (GET) -->
+      <form method="GET" action="{{ url_for('admin') }}" class="mb-4">
+        <div class="mb-3">
+          <label for="assessment">Select Assessment to edit:</label>
+          <select id="assessment" name="assessment_id" class="form-select">
+            <option value="">-- Create new --</option>
+            {% for a in assessments %}
+            <option value="{{ a.id }}"
+              {% if selected_assessment and a.id == selected_assessment.id %}selected{% endif %}>
+              {{ a.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <button class="btn btn-secondary">Load</button>
+      </form>
+
+      <!-- 2) create / update form -->
+      <form method="POST"
+            action="{{ url_for('admin') }}"
+            enctype="multipart/form-data">
+
+        {# pass the id when editing #}
+        {% if selected_assessment %}
+        <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
+        {% endif %}
 
         <div class="mb-3">
-          <label for="assessment_name" class="form-label">
-            Evaluation name<br>
-            <small><span style="color:#666;">
-              Suggest format of <em>Folio Grant Plan - Grant name</em> for example: <code>GRPR-01 - Flood Recovery Grants 2025</code>
-            </span></small>
-          </label>
-          <input type="text" class="form-control" id="assessment_name" name="assessment_name" required>
+          <label for="assessment_name" class="form-label">Evaluation name</label>
+          <input
+            type="text"
+            id="assessment_name"
+            name="assessment_name"
+            class="form-control"
+            required
+            value="{{ selected_assessment.name if selected_assessment else '' }}"
+          >
         </div>
 
         <div class="mb-3">
           <label for="applications" class="form-label">
-            Application code<br>
-            <small><span style="color:#666;">
-              One code per line, use the Folio submission codes, for example: <code>GRPR04-01, GRPR04-02</code>
-            </span></small>
+            Application code (one per line)
           </label>
-          <textarea name="applications" id="applications" class="form-control" rows="5" cols="30"></textarea>
+          <textarea
+            id="applications"
+            name="applications"
+            class="form-control"
+            rows="5"
+          >{{ applications_text }}</textarea>
         </div>
-        
+
         <div class="mb-3">
           <label for="criteria" class="form-label">
-            Criteria in the format of <em>description | weight</em>.<br>
-            <small><span style="color:#666;">Examples: <code>Value for money|40</code> or <code>Capacity to deliver grant|30</code><br>
-            One criteria per line ; seperate description from weight with a pipe | ; no punctuation or symbols in criteria, avoid thinigs like: <code>- ; [] " () ,</code> ; weight should be a whole number between 1-100</small></span>
+            Criteria (description|weight, one per line)
           </label>
-          <textarea name="criteria" id="criteria" class="form-control" rows="5" cols="30"></textarea>
-        </div>    
-        
-        <div class="mb-3">
-          <label for="pdf_file" class="form-label">Upload results PDF:</label>
-          <input type="file" class="form-control" name="pdf_file" id="pdf_file" accept="application/pdf">
+          <textarea
+            id="criteria"
+            name="criteria"
+            class="form-control"
+            rows="5"
+          >{{ criteria_text }}</textarea>
         </div>
 
         <div class="mb-3">
-          <label for="pdf_file_score" class="form-label">Upload scoring guide PDF:</label>
-          <input type="file" class="form-control" name="pdf_file_score" id="pdf_file_score" accept="application/pdf">
+          <label for="pdf_file" class="form-label">Upload results PDF</label>
+          <input type="file" id="pdf_file" name="pdf_file" class="form-control" accept="application/pdf">
+          {% if selected_assessment and selected_assessment.pdf_filename %}
+          <small>Current: <a href="{{ url_for('static', filename='uploads/'+selected_assessment.pdf_filename) }}" target="_blank">
+            {{ selected_assessment.pdf_filename }}
+          </a></small>
+          {% endif %}
         </div>
 
         <div class="mb-3">
-          <label for="assessment_name" class="form-label">
-            Additional support material<br>
-            <small><span style="color:#666;">
-              Link to a Sharepoint directory where additional documentation can be stored.
-            </span></small>
-          </label>
-          <input type="text" class="form-control" id="sharepoint_dir" name="sharepoint_dir" required>
+          <label for="pdf_file_score" class="form-label">Upload scoring guide PDF</label>
+          <input type="file" id="pdf_file_score" name="pdf_file_score" class="form-control" accept="application/pdf">
+          {% if selected_assessment and selected_assessment.pdf_score_filename %}
+          <small>Current: <a href="{{ url_for('static', filename='uploads/'+selected_assessment.pdf_score_filename) }}" target="_blank">
+            {{ selected_assessment.pdf_score_filename }}
+          </a></small>
+          {% endif %}
         </div>
-        
-        <div class="mb-3">
-          <label for="assessors" class="form-label">
-            Panel Member Names (one per line):<br>
-            <small><span style="color:#666;">
-              One panel member per line, use their full name, for example <code>Morgan Strong</code>
-            </span></small>
-          </label>
-          <textarea name="assessors" id="assessors" class="form-control" rows="5" cols="30"></textarea>
-        </div> 
 
         <div class="mb-3">
-          <input type="submit" value="Create new assessment" class="btn btn-primary">
+          <label for="sharepoint_dir" class="form-label">Additional support material (SharePoint link)</label>
+          <input
+            type="text"
+            id="sharepoint_dir"
+            name="sharepoint_dir"
+            class="form-control"
+            required
+            value="{{ sharepoint_dir }}"
+          >
+        </div>
+
+        <div class="mb-3">
+          <label for="assessors" class="form-label">Panel Member Names (one per line)</label>
+          <textarea
+            id="assessors"
+            name="assessors"
+            class="form-control"
+            rows="5"
+          >{{ assessors_text }}</textarea>
+        </div>
+
+        <div class="mb-3">
+          <input
+            type="submit"
+            class="btn btn-primary"
+            value="{{ 'Update assessment' if selected_assessment else 'Create new assessment' }}"
+          >
         </div>
       </form>
-        {% if assessors %}
-        <hr>
-        <h2>Generated Assessor URLs and Access Codes for this Assessment</h2>
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Unique URL</th>
-              <th>Access Code</th>
-            </tr>
-          </thead>
-          <tbody class="table-group-divider">
-          {% for assessor in assessors %}
-            <tr>
-              <td>{{ assessor.name }}</td>
-              <td><a href="{{ url_for('score', token=assessor.unique_token) }}">
-                {{ request.host_url }}score/{{ assessor.unique_token }}
-              </a></td>
-              <td>{{ assessor.access_code }}</td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      {% endif %}
-        <br><br>
-        <hr>
-        <br><br>
+      <br><br>
     </div>
     <script>
         document.getElementById('assessor-form').addEventListener('submit', function(e) {
