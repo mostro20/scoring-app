@@ -87,83 +87,103 @@ def create_app():
     @admin_login_required
     def admin():
         from werkzeug.utils import secure_filename  # Ensure this is imported
+        assessments = Assessment.query.order_by(Assessment.name).all()
+        selected = None
+        apps_txt = criteria_txt = assessors_txt = sharepoint_dir = ''
+
+        if request.method == 'GET':
+            aid = request.args.get('assessment_id')
+            if aid:
+                selected = Assessment.query.get(aid)
+                # build newline-delimited strings for textareas
+                apps_txt = '\n'.join(a.code for a in selected.applications)
+                criteria_txt = '\n'.join(f"{c.description}|{c.weight}" for c in selected.criteria)
+                assessors_txt = '\n'.join(m.name for m in selected.assessors)
+                sharepoint_dir = selected.sharepoint_dir
+
         if request.method == 'POST':
-            # Create a new assessment session first
-            assessment_name = request.form.get('assessment_name')
-            if not assessment_name:
-                flash("Please provide an assessment name.")
-                return redirect(url_for('admin'))
+            aid = request.form.get('assessment_id')
+            name = request.form['assessment_name']
+            apps_raw      = request.form.get('applications','').strip().splitlines()
             
-            new_assessment = Assessment(
-                name=assessment_name,
-                sharepoint_dir=request.form.get('sharepoint_dir')  # add it here
-            )
-            db.session.add(new_assessment)
-            db.session.flush()  # Commit to get new_assessment.id
+            criteria_raw  = request.form.get('criteria','').strip().splitlines()
+            assessors_raw = request.form.get('assessors','').strip().splitlines()
+            sharepoint_dir= request.form['sharepoint_dir']
 
-            # Process Application Codes (tied to this assessment)
-            apps_raw = request.form.get('applications')
-            if apps_raw:
-                for line in apps_raw.strip().splitlines():
-                    code = line.strip()
-                    if code and not Application.query.filter_by(code=code, assessment_id=new_assessment.id).first():
-                        db.session.add(Application(code=code, assessment_id=new_assessment.id))
-            
-            # Process Criteria (tied to this assessment)
-            criteria_raw = request.form.get('criteria')
-            if criteria_raw:
-                for line in criteria_raw.strip().splitlines():
-                    parts = line.split('|')
-                    if len(parts) == 2:
-                        description = parts[0].strip()
-                        try:
-                            weight = float(parts[1].strip())
-                            db.session.add(Criteria(description=description, weight=weight, assessment_id=new_assessment.id))
-                        except ValueError:
-                            pass  # handle invalid weight
+            # load or create the Assessment
+            if aid:
+                selected = Assessment.query.get(aid)
+                selected.name = name
+                selected.sharepoint_dir = sharepoint_dir
+            else:
+                selected = Assessment(name=name, sharepoint_dir=sharepoint_dir)
+                db.session.add(selected)
+                db.session.flush()  # so selected.id is available
 
-            # Process PDF Upload (if needed)
-            pdf = request.files.get('pdf_file')
-            if pdf:
-                filename = secure_filename(pdf.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                pdf.save(filepath)
-                new_assessment.pdf_filename = filename
-            
-            # Process 2nd PDF Upload (if needed)
-            pdf_score = request.files.get('pdf_file_score')
-            if pdf_score:
-                filename = secure_filename(pdf_score.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                pdf_score.save(filepath)
-                new_assessment.pdf_score_filename = filename
+            # ----- Applications -----
+            # remove old apps, add new
+            selected.applications[:] = []
+            for code in apps_raw:
+                code = code.strip()
+                if code:
+                    selected.applications.append(
+                        Application(code=code, assessment_id=selected.id)
+                    )
 
-            sharepoint_dir = request.form.get('sharepoint_dir')
-            if sharepoint_dir:
-                new_assessment.sharepoint_dir = sharepoint_dir 
+            # ----- Criteria -----
+            selected.criteria[:] = []
+            for line in criteria_raw:
+                parts = line.split('|', 1)
+                if len(parts) == 2:
+                    desc = parts[0].strip()
+                    try:
+                        wt = int(parts[1].strip())
+                    except ValueError:
+                        continue
+                    selected.criteria.append(
+                        Criteria(description=desc, weight=wt, assessment_id=selected.id)
+                    )
 
-            # Process Assessors (tied to this assessment)
-            assessors_raw = request.form.get('assessors')
-            if assessors_raw:
-                for line in assessors_raw.strip().splitlines():
-                    name = line.strip()
-                    if name:
-                        token = secrets.token_urlsafe(16)
-                        access_code = secrets.token_hex(4)
-                        assessor = Assessor(name=name, unique_token=token, access_code=access_code, assessment_id=new_assessment.id)
-                        db.session.add(assessor)
+            # ----- Assessors -----
+            selected.assessors[:] = []
+            for name in assessors_raw:
+                nm = name.strip()
+                if not nm:
+                    continue
+                token      = secrets.token_urlsafe(16)
+                access_code= secrets.token_hex(4)
+                selected.assessors.append(
+                    Assessor(
+                    name=nm,
+                    unique_token=token,
+                    access_code=access_code,
+                    assessment_id=selected.id
+                    )
+                )
+
+            # ----- PDF uploads -----
+            for field, attr in (('pdf_file', 'pdf_filename'),
+                                ('pdf_file_score', 'pdf_score_filename')):
+                f = request.files.get(field)
+                if f and f.filename:
+                    fn = secure_filename(f.filename)
+                    dest = os.path.join(app.config['UPLOAD_FOLDER'], fn)
+                    f.save(dest)
+                    setattr(selected, attr, fn)
             
             db.session.commit()
-            flash("Data submitted successfully!")
-            # Redirect with assessment_id so that the admin page shows only this session’s assessors.
-            return redirect(url_for('admin', assessment_id=new_assessment.id))
-        
-        # On GET, if an assessment_id is provided, show only that assessment's assessors.
-        assessment_id = request.args.get('assessment_id')
-        assessors = []
-        if assessment_id:
-            assessors = Assessor.query.filter_by(assessment_id=assessment_id).all()
-        return render_template('admin.html', assessors=assessors)
+            flash(aid and "Assessment updated successfully." or "New assessment created.")
+            return redirect(url_for('admin', assessment_id=selected.id))
+
+        return render_template(
+            'admin.html',
+            assessments=assessments,
+            selected_assessment=selected,
+            applications_text=apps_txt,
+            criteria_text=criteria_txt,
+            assessors_text=assessors_txt,
+            sharepoint_dir=sharepoint_dir,
+        )
 
     @app.route('/admin/scores', methods=['GET', 'POST'])
     @admin_login_required
@@ -238,7 +258,74 @@ def create_app():
             flash("An error occurred while updating the score.")
 
         return redirect(url_for('admin_scores'))
-    
+
+    @app.route('/admin/scores/summary', methods=['GET', 'POST'])
+    @admin_login_required
+    def admin_scores_summary():
+        assessments = Assessment.query.order_by(Assessment.name).all()
+        selected_assessment = None
+        raw_scores = []
+
+        if request.method == 'POST':
+            aid = request.form.get('assessment_id')
+            if aid:
+                selected_assessment = Assessment.query.get(aid)
+                raw_scores = (
+                    db.session.query(Score, Assessor, Application, Criteria)
+                    .join(Assessor, Score.assessor_id == Assessor.id)
+                    .join(Application, Score.application_id == Application.id)
+                    .join(Criteria, Score.criteria_id == Criteria.id)
+                    .filter(Assessor.assessment_id == selected_assessment.id)
+                    .all()
+                )
+
+        # 3) Build the panel-member breakdown
+        panel_breakdown = {}
+        for score, assessor, application, criteria in raw_scores:
+            w = (score.score * criteria.weight) / 100
+            entry = panel_breakdown.setdefault(assessor.id, {
+                "assessor": assessor,
+                "scores": [],
+                "finalised": True
+            })
+            if not score.finalised:
+                entry["finalised"] = False
+            entry["scores"].append({
+                "application": application,
+                "weighted": w
+            })
+        for entry in panel_breakdown.values():
+            entry["scores"].sort(key=lambda x: x["weighted"], reverse=True)
+        panel_breakdown_list = list(panel_breakdown.values())
+
+        # 4) Build the application-centric breakdown
+        app_breakdown = {}
+        for score, assessor, application, criteria in raw_scores:
+            w = (score.score * criteria.weight) / 100
+            entry = app_breakdown.setdefault(application.id, {
+                "application": application,
+                "scores": []
+            })
+            entry["scores"].append({
+                "assessor": assessor,
+                "criteria":   criteria,   # still store the whole object
+                "weighted":   w
+            })
+
+        # sort each application's list high→low
+        app_breakdown_list = []
+        for entry in app_breakdown.values():
+            entry["scores"].sort(key=lambda x: x["weighted"], reverse=True)
+            app_breakdown_list.append(entry)
+
+        return render_template(
+            'admin_scores_summary.html',
+            assessments=assessments,
+            selected_assessment=selected_assessment,
+            panel_breakdown=panel_breakdown_list,
+            app_breakdown=app_breakdown_list
+        )
+
     @app.route('/admin/scores/publish', methods=['POST'])
     @admin_login_required
     def publish_scores():
@@ -366,6 +453,9 @@ def create_app():
         if 'assessor_id' not in session or session['assessor_id'] != assessor.id:
             return redirect(url_for('assessor_login', token=token))
 
+        if request.method == 'POST':
+            action = request.form.get('action')  # will be 'save' or 'finalise'
+
         # Get the assessment via the assessor relationship
         assessment = Assessment.query.get(assessor.assessment_id)
         # Use the relationships defined in your models (if set up) or query explicitly:
@@ -378,6 +468,10 @@ def create_app():
         for s in existing_scores:
             key = f"{s.application_id}-{s.criteria_id}"
             score_dict[key] = s
+
+        # NEW: if any of this assessor’s scores are finalised, we treat the whole
+        #     submission as final
+        is_finalised = any(s.finalised for s in existing_scores)
 
         if request.method == 'POST':
             for app_entry in applications:
@@ -411,17 +505,42 @@ def create_app():
                         except ValueError:
                             flash("Invalid score input.")
                             return redirect(url_for('score', token=token))
+            # if they clicked “Submit and finalise…”
+            if action == 'finalise':
+                # mark every one of this assessor’s scores as final
+                for s in Score.query.filter_by(assessor_id=assessor.id):
+                    s.finalised = True
+
             db.session.commit()
-            flash("Progress saved!")  # or "Scores submitted successfully!" as appropriate.
+            # flash feedback for the modal
+            if action == 'save':
+                flash('Your progress has been saved. You can come back to this submission at any time and continue editing. Simply use the link that was provided by the admin to log back in and access the evaluation portal')
+            elif action == 'finalise':
+                flash('Your scores have been finalised and submitted. You can return to the portal at any time to view your final scores.')
             return redirect(url_for('score', token=token))
-            
+
+
+        # --- new: compute weighted totals for each application ---
+        weighted_scores = {}
+        for app_entry in applications:
+            total = 0
+            for crit in criteria:
+                key = f"{app_entry.id}-{crit.id}"
+                if key in score_dict:
+                    # note: score_dict[key].score is the integer 1–10
+                    total += (score_dict[key].score * crit.weight) / 10
+            # round or int‐cast as you prefer
+            weighted_scores[app_entry.id] = round(total, 2)
+
         return render_template(
             'score.html',
             token=token,
             assessment=assessment,
             applications=applications,
             criteria=criteria,
-            score_dict=score_dict
+            score_dict=score_dict,
+            weighted_scores=weighted_scores,
+            is_finalised=is_finalised
         )
 
     ## Now add the contact verification process

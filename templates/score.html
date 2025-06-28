@@ -5,21 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Assessor scoring page</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" type="text/css" href="/static/styles.css" /> 
+    <link rel="stylesheet" type="text/css" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/print.css" media="print">
+
   </head>
   <body>
     <div class="container my-4">
       <h1 class="mb-4">Assessment Scoring</h1>
-      <p>
+      <p class="hide-from-print-summary">
         Please open each response and give a score from 1-10 in each criteria. The responses are available in the PDF in the righthand
         pane. You can view this online or download the PDF if you prefer. The response code (e.g. GRPR04-01) is available at the top of each response.<br>
         {% if assessment.pdf_score_filename %}
         <a href="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) }}">Download the scoring guide</a>
         {% else %}
-        <p>No PDF available for this assessment.</p>
+        <p class="hide-from-print-summary">No PDF available for this assessment.</p>
         {% endif %}
         {% if assessment.sharepoint_dir %}
-        <p>Additional information available here: <a href="{{ assessment.sharepoint_dir }}">{{ assessment.sharepoint_dir }}</a></p>
+        <p class="hide-from-print-summary">Additional information available here: <a href="{{ assessment.sharepoint_dir }}">{{ assessment.sharepoint_dir }}</a></p>
         {% endif %}
       </p>
       <div class="row">
@@ -32,6 +34,7 @@
                 <h2 class="accordion-header" id="heading-{{ app.id }}">
                   <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app.id }}" aria-expanded="false" aria-controls="collapse-{{ app.id }}">
                     <strong>Application: {{ app.code }}</strong>
+                    &nbsp; Weighted Score: {{ weighted_scores[app.id] }}
                   </button>
                 </h2>
                 <div id="collapse-{{ app.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ app.id }}" data-bs-parent="#appAccordion">
@@ -41,15 +44,31 @@
                       <div class="mb-3">
                         <label>
                           <strong>{{ crit.description }}</strong> <span style="color: #666;">(weighted {{ crit.weight }}%)</span><br>
-                          <small><em>Provide a score of 1-10 for this criteria (whole numbers only)</em></small>
+                          <small><em>Provide a score of 1-10 for {{ crit.description }}</em></small>
                         </label>
-                        <input type="number" class="form-control mb-2" name="score-{{ app.id }}-{{ crit.id }}" min="1" max="10" step="1"
-                              value="{{ score_dict[key].score if key in score_dict else '' }}" required>
-                        <label>
+                        <input 
+                          type="number"
+                          class="form-control mb-2"
+                          name="score-{{ app.id }}-{{ crit.id }}"
+                          min="1"
+                          max="10"
+                          step="1"
+                          value="{{ score_dict[key].score if key in score_dict else '' }}"
+                          required
+                          {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
+                          >
+                        <label class="hide-from-print-summary">
                           <small><em>Provide remarks up to 255 characters for {{ crit.description }}</em></small>
                         </label>
-                        <input type="text" placeholder="Your remarks" class="form-control" name="comment-{{ app.id }}-{{ crit.id }}"
-                              value="{{ score_dict[key].comment if key in score_dict else '' }}" required>
+                        <input
+                          type="text"
+                          placeholder="Your remarks"
+                          class="form-control"
+                          name="comment-{{ app.id }}-{{ crit.id }}"
+                          value="{{ score_dict[key].comment if key in score_dict else '' }}"
+                          required
+                          {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
+                          >
                       </div>
                       <hr>
                     {% endfor %}
@@ -59,11 +78,41 @@
             {% endfor %}
             </div>
             <div class="mt-3">
-              <input type="submit" value="Submit Scores" class="btn btn-primary">
+              <div class="d-flex justify-content-end hide-from-print-summary">
+
+                <button 
+                  class="btn btn-outline-secondary btn-sm me-2" 
+                  onclick="window.print()"
+                  >
+                  🖨️ Summary view
+                </button>
+
+                <button
+                  id="saveBtn"
+                  type="submit"
+                  name="action"
+                  value="save"
+                  class="btn btn-secondary btn-sm me-2"
+                  {% if is_finalised %}disabled{% endif %}
+                >
+                  Save progress
+                </button>
+
+                <button
+                  type="submit"
+                  id="finaliseBtn"
+                  name="action"
+                  value="finalise"
+                  class="btn btn-primary btn-sm"
+                  onclick="return confirm('Once you submit and finalise, this cannot be undone and your scores are final. Are you sure you want to proceed?');" 
+                >
+                  Submit and finalise your score
+                </button>
+              </div>
             </div>
           </form>
         </div>
-        <div class="col-md-7">
+        <div class="col-md-7 hide-from-print-summary">
           {% if assessment.pdf_filename %}
             <iframe src="{{ url_for('uploaded_file', filename=assessment.pdf_filename) }}"
                     width="100%" height="1200px" class="border"></iframe>
@@ -94,15 +143,29 @@
           </div>
         </div>
         
-        <script>
+        
+      {% endif %}
+    {% endwith %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script>
           document.addEventListener("DOMContentLoaded", function(){
               var submissionModal = new bootstrap.Modal(document.getElementById('submissionModal'));
               submissionModal.show();
           });
+          document.getElementById('saveBtn').addEventListener('click', function(){
+            document.querySelectorAll('#appAccordion .accordion-collapse').forEach(function(panel){
+              panel.classList.add('show'); 
+            });
+            document.querySelectorAll('#appAccordion .accordion-button').forEach(function(btn){
+              btn.classList.remove('collapsed');
+              btn.setAttribute('aria-expanded', 'true');
+            });
+          });
+          document.getElementById('finaliseBtn')?.addEventListener('click', function(){
+            document.querySelectorAll('.accordion-collapse').forEach(panel=>{
+              new bootstrap.Collapse(panel, { toggle: false }).show();
+            });
+          });
         </script>
-      {% endif %}
-    {% endwith %}
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   </body>
 </html>

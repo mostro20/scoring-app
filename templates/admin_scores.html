@@ -17,9 +17,10 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
               <div class="navbar-nav">
-                <a class="nav-link" aria-current="page" href="/admin">Create new evaluation</a>
+                <a class="nav-link" aria-current="page" href="/admin">Create/edit assessments</a>
                 <a class="nav-link" href="/admin/assessors">View assessor links</a>
                 <a class="nav-link active" href="/admin/scores">Review scores and publish to Folio</a>
+                <a class="nav-link" href="/admin/scores/summary">Assessment summary</a>
               </div>
             </div>
           </div>
@@ -58,6 +59,7 @@
                 <th>Total Weighted Score</th>
                 <th>Number of Criteria Completed</th>
                 <th>Number of assessors</th>
+                <th>Total Score</th>
               </tr>
             </thead>
             <tbody class="table-group-divider">
@@ -67,6 +69,7 @@
                 <td>{{ group.total_weighted | round(2) }}</td>
                 <td>{{ group.count }}</td>
                 <td>{{ group.assessors | length }}</td>
+                <td>{{ group.total_weighted | round(2) / group.assessors | length * 10 }} / 100</td>
               </tr>
             {% endfor %}
             </tbody>
