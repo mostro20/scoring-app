@@ -49,7 +49,16 @@
 
         <h2>Panel-Member Breakdown</h2>
         {% for pb in panel_breakdown %}
-            <h4>{{ pb.assessor.name }}</h4>
+            <h4 class="h5">
+              {{ pb.assessor.name }}
+              <span class="small text-muted">[
+                {% if pb.finalised %}
+                  scoring finalised
+                {% else %}
+                  scoring in progress
+                {% endif %}
+              ]</span>
+            </h4>
             <table class="table table-sm table-striped mb-4">
             <thead>
                 <tr>
@@ -70,7 +79,7 @@
 
         <h2>Application Breakdown</h2>
         {% for ab in app_breakdown %}
-            <h4>{{ ab.application.code }}</h4>
+            <h4 class="h5">{{ ab.application.code }}</h4>
             <table class="table table-sm table-striped mb-4">
             <thead>
                 <tr>

@@ -88,17 +88,19 @@
                 </button>
 
                 <button
+                  id="saveBtn"
                   type="submit"
                   name="action"
                   value="save"
                   class="btn btn-secondary btn-sm me-2"
-                  {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
+                  {% if is_finalised %}disabled{% endif %}
                 >
                   Save progress
                 </button>
 
                 <button
                   type="submit"
+                  id="finaliseBtn"
                   name="action"
                   value="finalise"
                   class="btn btn-primary btn-sm"
@@ -141,15 +143,29 @@
           </div>
         </div>
         
-        <script>
+        
+      {% endif %}
+    {% endwith %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script>
           document.addEventListener("DOMContentLoaded", function(){
               var submissionModal = new bootstrap.Modal(document.getElementById('submissionModal'));
               submissionModal.show();
           });
+          document.getElementById('saveBtn').addEventListener('click', function(){
+            document.querySelectorAll('#appAccordion .accordion-collapse').forEach(function(panel){
+              panel.classList.add('show'); 
+            });
+            document.querySelectorAll('#appAccordion .accordion-button').forEach(function(btn){
+              btn.classList.remove('collapsed');
+              btn.setAttribute('aria-expanded', 'true');
+            });
+          });
+          document.getElementById('finaliseBtn')?.addEventListener('click', function(){
+            document.querySelectorAll('.accordion-collapse').forEach(panel=>{
+              new bootstrap.Collapse(panel, { toggle: false }).show();
+            });
+          });
         </script>
-      {% endif %}
-    {% endwith %}
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   </body>
 </html>

@@ -262,12 +262,10 @@ def create_app():
     @app.route('/admin/scores/summary', methods=['GET', 'POST'])
     @admin_login_required
     def admin_scores_summary():
-        # 1) always load the selector list
         assessments = Assessment.query.order_by(Assessment.name).all()
         selected_assessment = None
         raw_scores = []
 
-        # 2) when they POST a selection, pull in all the score rows
         if request.method == 'POST':
             aid = request.form.get('assessment_id')
             if aid:
@@ -287,13 +285,15 @@ def create_app():
             w = (score.score * criteria.weight) / 100
             entry = panel_breakdown.setdefault(assessor.id, {
                 "assessor": assessor,
-                "scores": []
+                "scores": [],
+                "finalised": True
             })
+            if not score.finalised:
+                entry["finalised"] = False
             entry["scores"].append({
                 "application": application,
                 "weighted": w
             })
-        # sort each assessor’s list high→low
         for entry in panel_breakdown.values():
             entry["scores"].sort(key=lambda x: x["weighted"], reverse=True)
         panel_breakdown_list = list(panel_breakdown.values())
@@ -469,6 +469,10 @@ def create_app():
             key = f"{s.application_id}-{s.criteria_id}"
             score_dict[key] = s
 
+        # NEW: if any of this assessor’s scores are finalised, we treat the whole
+        #     submission as final
+        is_finalised = any(s.finalised for s in existing_scores)
+
         if request.method == 'POST':
             for app_entry in applications:
                 for crit in criteria:
@@ -535,7 +539,8 @@ def create_app():
             applications=applications,
             criteria=criteria,
             score_dict=score_dict,
-            weighted_scores=weighted_scores
+            weighted_scores=weighted_scores,
+            is_finalised=is_finalised
         )
 
     ## Now add the contact verification process
