@@ -258,7 +258,74 @@ def create_app():
             flash("An error occurred while updating the score.")
 
         return redirect(url_for('admin_scores'))
-    
+
+    @app.route('/admin/scores/summary', methods=['GET', 'POST'])
+    @admin_login_required
+    def admin_scores_summary():
+        # 1) always load the selector list
+        assessments = Assessment.query.order_by(Assessment.name).all()
+        selected_assessment = None
+        raw_scores = []
+
+        # 2) when they POST a selection, pull in all the score rows
+        if request.method == 'POST':
+            aid = request.form.get('assessment_id')
+            if aid:
+                selected_assessment = Assessment.query.get(aid)
+                raw_scores = (
+                    db.session.query(Score, Assessor, Application, Criteria)
+                    .join(Assessor, Score.assessor_id == Assessor.id)
+                    .join(Application, Score.application_id == Application.id)
+                    .join(Criteria, Score.criteria_id == Criteria.id)
+                    .filter(Assessor.assessment_id == selected_assessment.id)
+                    .all()
+                )
+
+        # 3) Build the panel-member breakdown
+        panel_breakdown = {}
+        for score, assessor, application, criteria in raw_scores:
+            w = (score.score * criteria.weight) / 100
+            entry = panel_breakdown.setdefault(assessor.id, {
+                "assessor": assessor,
+                "scores": []
+            })
+            entry["scores"].append({
+                "application": application,
+                "weighted": w
+            })
+        # sort each assessor’s list high→low
+        for entry in panel_breakdown.values():
+            entry["scores"].sort(key=lambda x: x["weighted"], reverse=True)
+        panel_breakdown_list = list(panel_breakdown.values())
+
+        # 4) Build the application-centric breakdown
+        app_breakdown = {}
+        for score, assessor, application, criteria in raw_scores:
+            w = (score.score * criteria.weight) / 100
+            entry = app_breakdown.setdefault(application.id, {
+                "application": application,
+                "scores": []
+            })
+            entry["scores"].append({
+                "assessor": assessor,
+                "criteria":   criteria,   # still store the whole object
+                "weighted":   w
+            })
+
+        # sort each application's list high→low
+        app_breakdown_list = []
+        for entry in app_breakdown.values():
+            entry["scores"].sort(key=lambda x: x["weighted"], reverse=True)
+            app_breakdown_list.append(entry)
+
+        return render_template(
+            'admin_scores_summary.html',
+            assessments=assessments,
+            selected_assessment=selected_assessment,
+            panel_breakdown=panel_breakdown_list,
+            app_breakdown=app_breakdown_list
+        )
+
     @app.route('/admin/scores/publish', methods=['POST'])
     @admin_login_required
     def publish_scores():
