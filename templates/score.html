@@ -33,7 +33,7 @@
               <div class="accordion-item">
                 <h2 class="accordion-header" id="heading-{{ app.id }}">
                   <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app.id }}" aria-expanded="false" aria-controls="collapse-{{ app.id }}">
-                    <strong>Application: {{ app.code }}</strong>
+                    <strong>Applicant {{ app.code }}</strong>
                     &nbsp; Weighted Score: {{ weighted_scores[app.id] }}
                   </button>
                 </h2>
@@ -54,7 +54,6 @@
                           max="10"
                           step="1"
                           value="{{ score_dict[key].score if key in score_dict else '' }}"
-                          required
                           {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
                           >
                         <label class="hide-from-print-summary">
@@ -66,7 +65,6 @@
                           class="form-control"
                           name="comment-{{ app.id }}-{{ crit.id }}"
                           value="{{ score_dict[key].comment if key in score_dict else '' }}"
-                          required
                           {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
                           >
                       </div>
