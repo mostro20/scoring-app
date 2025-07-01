@@ -11,19 +11,18 @@
   </head>
   <body>
     <div class="container my-4">
-      <h1 class="mb-4">Assessment Scoring</h1>
+      <h1 class="mb-4">Evaluation Portal - Assessment Scoring</h1>
       <p class="hide-from-print-summary">
-        Please open each response and give a score from 1-10 in each criteria. The responses are available in the PDF in the righthand
-        pane. You can view this online or download the PDF if you prefer. The response code (e.g. GRPR04-01) is available at the top of each response.<br>
-        {% if assessment.pdf_score_filename %}
-        <a href="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) }}">Download the scoring guide</a>
-        {% else %}
-        <p class="hide-from-print-summary">No PDF available for this assessment.</p>
-        {% endif %}
-        {% if assessment.sharepoint_dir %}
-        <p class="hide-from-print-summary">Additional information available here: <a href="{{ assessment.sharepoint_dir }}">{{ assessment.sharepoint_dir }}</a></p>
-        {% endif %}
+        Please give a score from 1-10 in each criteria for every application, along with remarks to justify your scoring. 
+        You can save progress and continue your scoring at any time using your unique URL and access code.
+        The PDF preview on the right hand side provides a brief summary of each application only.
       </p>
+      {% if assessment.sharepoint_dir %}
+      <p class="hide-from-print-summary">Access each application in full by following the link to the panel folder here: <a href="{{ assessment.sharepoint_dir }}">{{ assessment.sharepoint_dir }}</a></p>
+      {% endif %}
+      {% if assessment.pdf_score_filename %}
+      <p class="hide-from-print-summary"><a href="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) }}">Download the scoring guide</a></p>
+      {% endif %}
       <div class="row">
         <div class="col-md-5">
           <form method="POST" action="{{ url_for('score', token=token) }}">
