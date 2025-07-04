@@ -543,6 +543,59 @@ def create_app():
             is_finalised=is_finalised
         )
 
+    @app.route('/score/<token>/autosave', methods=['POST'])
+    def autosave_score(token):
+        assessor = Assessor.query.filter_by(unique_token=token).first_or_404()
+        if session.get('assessor_id') != assessor.id:
+            return jsonify({ 'error': 'not-authorized' }), 401
+
+        data = request.get_json() or {}
+        app_id  = data.get('application_id')
+        crit_id = data.get('criteria_id')
+        score_v = data.get('score')
+        comment = data.get('comment')
+
+        if app_id is None or crit_id is None:
+            return jsonify({ 'error': 'missing parameters' }), 400
+
+        # coerce score if present
+        s = Score.query.filter_by(
+            assessor_id=assessor.id,
+            application_id=app_id,
+            criteria_id=crit_id
+        ).first()
+
+        # parse int if nonempty
+        if score_v is not None and score_v != '':
+            try:
+                score_i = int(score_v)
+                if not (1 <= score_i <= 10):
+                    raise ValueError
+            except ValueError:
+                return jsonify({ 'error': 'invalid score' }), 400
+        else:
+            score_i = None
+
+        if s:
+            # update existing
+            if score_i is not None:
+                s.score = score_i
+            if comment is not None:
+                s.comment = comment
+        else:
+            # only create if at least one field present
+            s = Score(
+                assessor_id   = assessor.id,
+                application_id= app_id,
+                criteria_id   = crit_id,
+                score         = score_i or 0,
+                comment       = comment or ''
+            )
+            db.session.add(s)
+
+        db.session.commit()
+        return jsonify({ 'status': 'ok' })
+
     ## Now add the contact verification process
     # Route to generate an obfuscated token from a folio key (for admin use)
     @app.route("/generate/<folio_key>")

@@ -84,7 +84,7 @@
                   🖨️ Summary view
                 </button>
 
-                <button
+                <!--<button
                   id="saveBtn"
                   type="submit"
                   name="action"
@@ -93,7 +93,7 @@
                   {% if is_finalised %}disabled{% endif %}
                 >
                   Save progress
-                </button>
+                </button>-->
 
                 <button
                   type="submit"
@@ -149,20 +149,49 @@
               var submissionModal = new bootstrap.Modal(document.getElementById('submissionModal'));
               submissionModal.show();
           });
-          document.getElementById('saveBtn').addEventListener('click', function(){
-            document.querySelectorAll('#appAccordion .accordion-collapse').forEach(function(panel){
-              panel.classList.add('show'); 
-            });
-            document.querySelectorAll('#appAccordion .accordion-button').forEach(function(btn){
-              btn.classList.remove('collapsed');
-              btn.setAttribute('aria-expanded', 'true');
-            });
-          });
           document.getElementById('finaliseBtn')?.addEventListener('click', function(){
             document.querySelectorAll('.accordion-collapse').forEach(panel=>{
               new bootstrap.Collapse(panel, { toggle: false }).show();
             });
           });
+          // build the autosave URL once
+          const autosaveUrl = "{{ url_for('autosave_score', token=token) }}";
+
+          // helper to POST JSON
+          async function autosave(payload){
+            try {
+              let res = await fetch(autosaveUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+              if (!res.ok) {
+                let err = await res.json();
+                console.error('Autosave error:', err);
+              }
+            } catch(e) {
+              console.error('Autosave failed:', e);
+            }
+          }
+
+          // attach blur listeners to every score/comment input
+          document.querySelectorAll('input[name^="score-"], input[name^="comment-"]').forEach(input => {
+            input.addEventListener('blur', function(){
+              // name is "score-<appId>-<critId>" or "comment-<appId>-<critId>"
+              let [type, appId, critId] = this.name.split('-');
+              let scoreField   = document.querySelector(`input[name="score-${appId}-${critId}"]`);
+              let commentField = document.querySelector(`input[name="comment-${appId}-${critId}"]`);
+
+              autosave({
+                application_id: parseInt(appId, 10),
+                criteria_id:    parseInt(critId, 10),
+                score:          scoreField   ? scoreField.value   : null,
+                comment:        commentField ? commentField.value : null
+              });
+            });
+          });
+
         </script>
   </body>
 </html>
