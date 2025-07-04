@@ -245,8 +245,8 @@ def create_app():
             new_comment = request.form.get('comment')
 
             # Optional: validate score bounds again
-            if not (1 <= new_score <= 10):
-                flash("Score must be between 1 and 10.")
+            if not (0 <= new_score <= 10):
+                flash("Score must be between 0 and 10.")
                 return redirect(url_for('admin_scores'))
 
             score.score = new_score
@@ -484,7 +484,7 @@ def create_app():
                     if score_value:
                         try:
                             score_int = int(score_value)
-                            if 1 <= score_int <= 10:
+                            if 0 <= score_int <= 10:
                                 key = f"{app_entry.id}-{crit.id}"
                                 if key in score_dict:
                                     existing = score_dict[key]
@@ -500,7 +500,7 @@ def create_app():
                                     )
                                     db.session.add(new_score)
                             else:
-                                flash("Score must be between 1 and 10.")
+                                flash("Score must be between 0 and 10.")
                                 return redirect(url_for('score', token=token))
                         except ValueError:
                             flash("Invalid score input.")
@@ -527,10 +527,12 @@ def create_app():
             for crit in criteria:
                 key = f"{app_entry.id}-{crit.id}"
                 if key in score_dict:
-                    # note: score_dict[key].score is the integer 1–10
+                    # note: score_dict[key].score is the integer 0–10
                     total += (score_dict[key].score * crit.weight) / 10
             # round or int‐cast as you prefer
             weighted_scores[app_entry.id] = round(total, 2)
+
+        crit_weights = { c.id: c.weight for c in criteria }
 
         return render_template(
             'score.html',
@@ -539,6 +541,7 @@ def create_app():
             applications=applications,
             criteria=criteria,
             score_dict=score_dict,
+            crit_weights=crit_weights,
             weighted_scores=weighted_scores,
             is_finalised=is_finalised
         )
@@ -569,7 +572,7 @@ def create_app():
         if score_v is not None and score_v != '':
             try:
                 score_i = int(score_v)
-                if not (1 <= score_i <= 10):
+                if not (0 <= score_i <= 10):
                     raise ValueError
             except ValueError:
                 return jsonify({ 'error': 'invalid score' }), 400

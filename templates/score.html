@@ -13,7 +13,7 @@
     <div class="container my-4">
       <h1 class="mb-4">Evaluation Portal - Assessment Scoring</h1>
       <p class="hide-from-print-summary">
-        Please give a score from 1-10 in each criteria for every application, along with remarks to justify your scoring. 
+        Please give a score from 0-10 in each criteria for every application, along with remarks to justify your scoring. 
         You can save progress and continue your scoring at any time using your unique URL and access code.
         The PDF preview on the right hand side provides a brief summary of each application only.
       </p>
@@ -33,7 +33,7 @@
                 <h2 class="accordion-header" id="heading-{{ app.id }}">
                   <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app.id }}" aria-expanded="false" aria-controls="collapse-{{ app.id }}">
                     <strong>Applicant {{ app.code }}</strong>
-                    &nbsp; Weighted Score: {{ weighted_scores[app.id] }}
+                    &nbsp; Weighted Score: <span id="weighted-{{ app.id }}">{{ weighted_scores[app.id] }}</span>
                   </button>
                 </h2>
                 <div id="collapse-{{ app.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ app.id }}" data-bs-parent="#appAccordion">
@@ -41,7 +41,7 @@
                     {% for crit in criteria %}
                     {% set key = app.id ~ '-' ~ crit.id %}
                       <div class="mb-3">
-                        <label>
+                        <label for="score-{{ app.id }}-{{ crit.id }}">
                           <strong>{{ crit.description }}</strong> <span style="color: #666;">(weighted {{ crit.weight }}%)</span><br>
                           <small><em>Provide a score of 1-10 for {{ crit.description }}</em></small>
                         </label>
@@ -49,13 +49,14 @@
                           type="number"
                           class="form-control mb-2"
                           name="score-{{ app.id }}-{{ crit.id }}"
-                          min="1"
+                          id="score-{{ app.id }}-{{ crit.id }}"
+                          min="0"
                           max="10"
                           step="1"
                           value="{{ score_dict[key].score if key in score_dict else '' }}"
                           {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
                           >
-                        <label class="hide-from-print-summary">
+                        <label for="comment-{{ app.id }}-{{ crit.id }}" class="hide-from-print-summary">
                           <small><em>Provide remarks up to 255 characters for {{ crit.description }}</em></small>
                         </label>
                         <input
@@ -63,6 +64,7 @@
                           placeholder="Your remarks"
                           class="form-control"
                           name="comment-{{ app.id }}-{{ crit.id }}"
+                          id="comment-{{ app.id }}-{{ crit.id }}"
                           value="{{ score_dict[key].comment if key in score_dict else '' }}"
                           {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
                           >
@@ -175,6 +177,32 @@
             }
           }
 
+          // now Jinja just dumps a JSON literal
+          const critWeights    = {{ crit_weights  | tojson }};
+          const initialScores  = {{ weighted_scores | tojson }};
+
+          // set initial display
+          document.addEventListener('DOMContentLoaded', () => {
+            for (const [appId, ws] of Object.entries(initialScores)) {
+              const span = document.getElementById(`weighted-${appId}`);
+              if (span) span.textContent = ws.toFixed(2);
+            }
+          });
+
+          function recalcApp(appId) {
+            let total = 0;
+            document
+              .querySelectorAll(`input[name^="score-${appId}-"]`)
+              .forEach(input => {
+                const v = parseInt(input.value, 10);
+                if (!isNaN(v)) {
+                  total += (v * critWeights[input.name.split('-')[2]]) / 10;
+                }
+              });
+            const span = document.getElementById(`weighted-${appId}`);
+            if (span) span.textContent = total.toFixed(2);
+          }
+
           // attach blur listeners to every score/comment input
           document.querySelectorAll('input[name^="score-"], input[name^="comment-"]').forEach(input => {
             input.addEventListener('blur', function(){
@@ -189,8 +217,13 @@
                 score:          scoreField   ? scoreField.value   : null,
                 comment:        commentField ? commentField.value : null
               });
+
+              recalcApp(appId);
+
             });
           });
+
+
 
         </script>
   </body>
