@@ -43,7 +43,7 @@
                       <div class="mb-3">
                         <label for="score-{{ app.id }}-{{ crit.id }}">
                           <strong>{{ crit.description }}</strong> <span style="color: #666;">(weighted {{ crit.weight }}%)</span><br>
-                          <small><em>Provide a score of 1-10 for {{ crit.description }}</em></small>
+                          <small><em>Provide a score of 0-10 for {{ crit.description }}</em></small>
                         </label>
                         <input 
                           type="number"
@@ -222,9 +222,6 @@
 
             });
           });
-
-
-
         </script>
   </body>
 </html>
