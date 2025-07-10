@@ -1,5 +1,5 @@
 # app.py
-import os, secrets, time, requests, json
+import os, secrets, time, requests, json, re
 from flask import Flask, session, render_template, request, redirect, url_for, flash, session, send_from_directory, jsonify
 from extensions import db
 from functools import wraps
@@ -225,15 +225,31 @@ def create_app():
             grouped[app_key]["count"] += 1
             grouped[app_key]["assessors"].add(assessor.id) 
         
-        # Sorted grouped list: highest total score first.
-        grouped_scores = sorted(grouped.values(), key=lambda x: x["total_weighted"], reverse=True)
-        
+        grouped_list = []
+        for g in grouped.values():
+            num_assessors = len(g["assessors"])
+            # average weighted per assessor (1–10), then scale to 0–100
+            if num_assessors:
+                final_score = (g["total_weighted"] / num_assessors) * 10
+            else:
+                final_score = 0
+            g["final_score"] = final_score
+            grouped_list.append(g)
+
+        # 2) sort by final_score descending
+        grouped_list.sort(key=lambda x: x["final_score"], reverse=True)
+
+        # 3) assign rank
+        for idx, g in enumerate(grouped_list, start=1):
+            g["rank"] = idx
+
+        # now pass `grouped_scores=grouped_list` into the template
         return render_template(
             'admin_scores.html',
             assessments=assessments,
             selected_assessment=selected_assessment,
             detailed_scores=detailed_scores,
-            grouped_scores=grouped_scores
+            grouped_scores=grouped_list
         )
     
     @app.route('/admin/edit-score/<int:score_id>', methods=['POST'])
@@ -298,25 +314,31 @@ def create_app():
             entry["scores"].sort(key=lambda x: x["weighted"], reverse=True)
         panel_breakdown_list = list(panel_breakdown.values())
 
-        # 4) Build the application-centric breakdown
+        # 4) Build the application-centric breakdown (aggregated per assessor)
         app_breakdown = {}
         for score, assessor, application, criteria in raw_scores:
             w = (score.score * criteria.weight) / 100
             entry = app_breakdown.setdefault(application.id, {
                 "application": application,
-                "scores": []
+                "assessor_scores": {}
             })
-            entry["scores"].append({
-                "assessor": assessor,
-                "criteria":   criteria,   # still store the whole object
-                "weighted":   w
-            })
+            asc = entry["assessor_scores"]
+            if assessor.id not in asc:
+                asc[assessor.id] = {
+                    "assessor": assessor,
+                    "total_weighted": 0
+                }
+            asc[assessor.id]["total_weighted"] += w
 
-        # sort each application's list high→low
+        # flatten into a list and sort each application’s assessors by score
         app_breakdown_list = []
         for entry in app_breakdown.values():
-            entry["scores"].sort(key=lambda x: x["weighted"], reverse=True)
-            app_breakdown_list.append(entry)
+            scores = list(entry["assessor_scores"].values())
+            scores.sort(key=lambda x: x["total_weighted"], reverse=True)
+            app_breakdown_list.append({
+                "application": entry["application"],
+                "scores": scores
+            })
 
         return render_template(
             'admin_scores_summary.html',
@@ -686,7 +708,14 @@ def create_app():
             contacts = []
 
         return render_template("folio.html", folio_key=folio_key, entity=entity, contacts=contacts)
-
+    
+    @app.template_filter('clean_code')
+    def clean_code(s):
+        # 1) strip leading digits+colon+space, then
+        # 2) strip anything from "(" onward
+        s = re.sub(r'^\d+:\s*', '', s)
+        s = re.sub(r'\s*\(.*$',   '', s)
+        return s
 
     # Create the database tables within the application context
     with app.app_context():

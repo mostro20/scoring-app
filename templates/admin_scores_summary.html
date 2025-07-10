@@ -78,27 +78,26 @@
         {% endfor %}
 
         <h2>Application Breakdown</h2>
-        {% for ab in app_breakdown %}
-            <h4 class="h5">{{ ab.application.code }}</h4>
-            <table class="table table-sm table-striped mb-4">
-            <thead>
-                <tr>
-                <th>Assessor</th>
-                <th>Criteria</th>
-                <th class="text-end">Weighted Score</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in ab.scores %}
-                <tr>
-                <td>{{ item.assessor.name }}</td>
-                <td>{{ item.criteria.description }}</td>
-                <td class="text-end">{{ item.weighted | round(2) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            </table>
-        {% endfor %}
+      {% for ab in app_breakdown %}
+        <h4 class="h5">{{ ab.application.code }}</h4>
+        <table class="table table-sm table-striped mb-4">
+          <thead>
+            <tr>
+              <th>Assessor</th>
+              <th class="text-end">Weighted Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in ab.scores %}
+            <tr>
+              <td>{{ item.assessor.name }}</td>
+              {# convert the 0–10 sum into 0–100 scale by ×10 #}
+              <td class="text-end">{{ (item.total_weighted * 10) | round(2) }} / 100</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endfor %}
         {% endif %}
 
 

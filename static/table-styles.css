@@ -1,0 +1,26 @@
+div.input-group.data-filter {
+  display: inline-flex;
+  width: 16em;
+}
+
+/* data-colpicker */
+div[data-colpicker-for] {
+  display: inline-block;
+  vertical-align: top;;
+  width: 12em;
+}
+
+ul.dropdown-menu li {
+  margin: .15em 1em;
+}
+
+ul.dropdown-menu li label {
+  width: 100%;
+}
+
+/* hide table rows/columns */
+th.hide-cell,
+td.hide-cell,
+tr.hide-row {
+  display: none;
+}

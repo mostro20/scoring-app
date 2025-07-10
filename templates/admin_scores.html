@@ -6,6 +6,7 @@
     <title>Administration - Scoring and progress</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" type="text/css" href="/static/styles.css" /> 
+    <link rel="stylesheet" type="text/css" href="/static/table-styles.css" />
   </head>
   <body>
     <div class="container">
@@ -47,38 +48,75 @@
         </form>
 
       {% if selected_assessment %}
-        <hr>
         <div id="publish-content">
-        <h2>Scores for Assessment: {{ selected_assessment.name }}</h2>
+        <h2 class="mt-5">Executive Summary: {{ selected_assessment.name }}</h2>
         <!-- Wrap the table in a div with an id -->
         <div id="scores-table">
-          <table class="table table-striped">
+          <table class="table table-striped mb-5">
             <thead>
               <tr>
                 <th>Application Code</th>
-                <th>Total Weighted Score</th>
+                <th>Rank</th>
                 <th>Number of Criteria Completed</th>
                 <th>Number of assessors</th>
-                <th>Total Score</th>
+                <th>Final Score</th>
               </tr>
             </thead>
             <tbody class="table-group-divider">
               {% for group in grouped_scores %}
               <tr>
                 <td>{{ group.application.code }}</td>
-                <td>{{ group.total_weighted | round(2) }}</td>
+                <td>{{ group.rank }}</td>
                 <td>{{ group.count }}</td>
                 <td>{{ group.assessors | length }}</td>
-                <td>{{ group.total_weighted | round(2) / group.assessors | length * 10 }} / 100</td>
+                <td>{{ group.final_score | round(2) }} / 100</td>
               </tr>
-            {% endfor %}
+              {% endfor %}
             </tbody>
           </table>
 
-          <hr>
+          
+
+        <h2 class="mt-5">
+          Outcome Summary: {{ selected_assessment.name }}
+
+          <button id="copyTableBtn" class="float-end btn btn-outline-secondary btn-sm mb-3">
+            📋 Copy table for XLSX
+          </button>
+        </h2>
+        <div id="folio-table">
+          <table class="table table-striped mb-5">
+            <thead>
+              <tr>
+                <th>Provider name</th>
+                <th>ABN</th>
+                <th>Funding requested in application</th>
+                <th>Rank</th>
+                <th>Final Score</th>
+                <th>Successful?</th>
+              </tr>
+            </thead>
+            <tbody class="table-group-divider">
+              {% for group in grouped_scores %}
+              <tr>
+                <td>{{ group.application.code | clean_code }}</td>
+                <td></td>
+                <td></td>
+                <td>{{ group.rank }}</td>
+                <td>{{ group.final_score | round(2) }}</td>
+                <td></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         
-          <h2>Detailed Scores</h2>
-          <table class="table table-bordered">
+          <h2 class="mt-4">Individual Assessor's Scores</h2>
+
+          <div class="input-group data-filter">
+              <span class="input-group-text">&#x1F50E;&#xFE0E;</span>
+              <input type="text" class="form-control" placeholder="Filter entries" data-filter-for="auditScores">
+          </div>
+          <table class="table table-bordered" id="auditScores">
             <thead>
               <tr>
                 <th>Assessor</th>
@@ -99,15 +137,22 @@
                     <td>{{ application.code }}</td>
                     <td>{{ criteria.description }}</td>
                     <td>
-                      <input type="number" name="score" min="1" max="10" step="1"
-                            class="form-control" value="{{ score.score }}" required>
+                      <input type="number" name="score" min="0" max="10" step="1"
+                            class="form-control" value="{{ score.score }}">
                     </td>
-                    <td>{{ weighted | round(2) }}</td>
+                    <td>{{ weighted | round(2) * 10 }}</td>
                     <td>
-                      <input type="text" name="comment" class="form-control"
-                            value="{{ score.comment }}" maxlength="255" required>
+                      <input 
+                        type="text" 
+                        name="comment" 
+                        class="form-control"
+                        value="{{ score.comment }}"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top"
+                        title="{{ score.comment }}"
+                      >
                     </td>
-                    <td>{{ score.created_at.strftime("%Y-%m-%d %H:%M:%S") if score.created_at else '' }}</td>
+                    <td>{{ score.created_at.strftime("%Y-%m-%d | %H:%M") if score.created_at else '' }}</td>
                     <td>
                       <button type="submit" class="btn btn-sm btn-primary">Update</button>
                     </td>
@@ -150,16 +195,43 @@
         </form>
         <hr>
       
-      <!-- JavaScript to capture table HTML on form submission -->
-      <script>
-        document.getElementById('publish-form').addEventListener('submit', function(e) {
-            var tableHtml = document.getElementById('scores-table').innerHTML;
-            document.getElementById('table_html').value = tableHtml;
-        });
-      </script>
     {% endif %}
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  <script src="/static/dynamic-tables.js"></script>
+        <script>
+        document.getElementById('publish-form').addEventListener('submit', function(e) {
+            var tableHtml = document.getElementById('scores-table').innerHTML;
+            document.getElementById('table_html').value = tableHtml;
+        });
+        document.getElementById('copyTableBtn').addEventListener('click', async () => {
+          const table = document.querySelector('#folio-table table');
+          if (!table) return;
+
+          // Build a tab-separated string: each row -> TSV line
+          const tsv = Array.from(table.rows).map(row =>
+            Array.from(row.cells).map(cell => cell.innerText.trim()).join('\t')
+          ).join('\n');
+
+          try {
+            await navigator.clipboard.writeText(tsv);
+            // Optional: give feedback
+            const origText = copyTableBtn.innerText;
+            copyTableBtn.innerText = 'Copied!';
+            setTimeout(() => copyTableBtn.innerText = origText, 1500);
+          } catch (err) {
+            alert('Copy failed: ' + err);
+          }
+        });
+        document.addEventListener('DOMContentLoaded', function () {
+          var tooltipTriggerList = [].slice.call(
+            document.querySelectorAll('[data-bs-toggle="tooltip"]')
+          );
+          tooltipTriggerList.forEach(function (el) {
+            new bootstrap.Tooltip(el);
+          });
+        });
+      </script>
 </body>
 </html>
