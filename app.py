@@ -716,6 +716,12 @@ def create_app():
         s = re.sub(r'^\d+:\s*', '', s)
         s = re.sub(r'\s*\(.*$',   '', s)
         return s
+    
+    @app.template_filter('clean_code_no')
+    def clean_code(s):
+        # 1) strip anything from ":" onward
+        s = re.sub(r'\s*\:.*$',   '', s)
+        return s
 
     # Create the database tables within the application context
     with app.app_context():
