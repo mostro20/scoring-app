@@ -95,16 +95,19 @@
             📋 Copy table for XLSX
           </button>
         </h2>
-        <div id="folio-table">
+        <form method="POST" action="{{ url_for('admin_scores') }}">
+          <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
+
           <table class="table table-striped mb-5">
             <thead>
               <tr>
                 <th>No.</th>
                 <th>Provider name</th>
                 <th>ABN</th>
-                <th>Funding requested in application</th>
+                <th>Funding requested</th>
                 <th>Rank</th>
-                <th>Final Score</th>
+                <th>Final score</th>
+                <th>Funding granted</th>
                 <th>Successful?</th>
               </tr>
             </thead>
@@ -114,14 +117,66 @@
                 <td>{{ group.application.code | clean_code_no }}</td>
                 <td>{{ group.application.code | clean_code }}</td>
                 <td></td>
-                <td></td>
+
+                <!-- funding_requested input -->
+                <td>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="funding_requested-{{ group.application.id }}"
+                    class="form-control form-control-sm"
+                    value="{{ group.application.funding_requested or '' }}"
+                  >
+                </td>
+
                 <td>{{ group.rank }}</td>
+
                 <td>{{ group.final_score | round(2) }}</td>
-                <td></td>
+
+                <!-- funding_given input -->
+                <td>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="funding_given-{{ group.application.id }}"
+                    class="form-control form-control-sm"
+                    value="{{ group.application.funding_given or '' }}"
+                  >
+                </td>
+
+                <!-- successful checkbox -->
+                <td class="text-center">
+                  <input
+                    type="checkbox"
+                    name="successful-{{ group.application.id }}"
+                    {% if group.application.successful %}checked{% endif %}
+                  >
+                </td>
               </tr>
               {% endfor %}
+              <tr class="table-secondary">
+                <td colspan="3"><strong>Running Totals:</strong></td>
+                <!-- total requested -->
+                <td><strong id="totalRequested">0.00</strong></td>
+                <td></td>
+                <td></td>
+                <!-- total given -->
+                <td><strong id="totalGiven">0.00</strong></td>
+                <td>
+                  <button
+                    type="submit"
+                    value="1"
+                    name="publish"
+                    class="btn btn-success float-end"
+                  >
+                    Publish outcomes
+                  </button>
+                </td>
+              </tr>
             </tbody>
           </table>
+        </form>
+
         
           <h2 class="mt-4">
             <a name="audit"></a>
@@ -247,6 +302,35 @@
             new bootstrap.Tooltip(el);
           });
         });
+        function updateTotals() {
+          let totalReq = 0, totalGiven = 0;
+
+          // Sum all "funding_requested-<id>" inputs
+          document.querySelectorAll('input[name^="funding_requested-"]').forEach(el => {
+            const v = parseFloat(el.value);
+            if (!isNaN(v)) totalReq += v;
+          });
+
+          // Sum all "funding_given-<id>" inputs
+          document.querySelectorAll('input[name^="funding_given-"]').forEach(el => {
+            const v = parseFloat(el.value);
+            if (!isNaN(v)) totalGiven += v;
+          });
+
+          // Update the totals in the table
+          document.getElementById('totalRequested').textContent = totalReq.toFixed(2);
+          document.getElementById('totalGiven').textContent     = totalGiven.toFixed(2);
+        }
+
+        // Wire it up: recalc on any change
+        document.querySelectorAll(
+          'input[name^="funding_requested-"], input[name^="funding_given-"]'
+        ).forEach(el => {
+          el.addEventListener('input', updateTotals);
+        });
+
+        // Initialize once on page load
+        document.addEventListener('DOMContentLoaded', updateTotals);
       </script>
 </body>
 </html>

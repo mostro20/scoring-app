@@ -26,17 +26,20 @@ class Assessment(db.Model):
 
 class Application(db.Model):
     __tablename__ = 'application'
-    id            = db.Column(db.Integer, primary_key=True)
-    code          = db.Column(db.String(50), nullable=False)
-    assessment_id = db.Column(
+    id                = db.Column(db.Integer, primary_key=True)
+    code              = db.Column(db.String(50), nullable=False)
+    assessment_id     = db.Column(
         db.Integer,
         db.ForeignKey('assessment.id', ondelete='CASCADE'),
         nullable=False
     )
-    assessment    = db.relationship(
+    assessment        = db.relationship(
         'Assessment',
         back_populates='applications'
     )
+    funding_requested = db.Column(db.Float, nullable=True)
+    funding_given     = db.Column(db.Float, nullable=True)
+    successful        = db.Column(db.Boolean, nullable=True, default=False)
 
 class Criteria(db.Model):
     __tablename__ = 'criteria'

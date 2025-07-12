@@ -192,6 +192,31 @@ def create_app():
         selected_assessment = None
         raw_scores = []
         
+        if request.method == 'POST' and request.form.get('publish'):
+                aid = request.form.get('assessment_id')
+                if aid:
+                    # Save each application’s new values
+                    for key, value in request.form.items():
+                        # funding_requested-<app_id>, funding_given-<app_id>, successful-<app_id>
+                        if key.startswith('funding_requested-'):
+                            app_id = int(key.split('-',1)[1])
+                            app = Application.query.get(app_id)
+                            app.funding_requested = float(value) if value else None
+                        elif key.startswith('funding_given-'):
+                            app_id = int(key.split('-',1)[1])
+                            app = Application.query.get(app_id)
+                            app.funding_given = float(value) if value else None
+                        elif key.startswith('successful-'):
+                            app_id = int(key.split('-',1)[1])
+                            app = Application.query.get(app_id)
+                            app.successful = True
+                    db.session.commit()
+                    flash('Outcomes published successfully.')
+                    return redirect(
+                        url_for('admin_scores', assessment_id=aid) + '#outcome'
+                    )
+
+        # existing “select assessment to view scores” logic
         if request.method == 'POST':
             selected_assessment_id = request.form.get('assessment_id')
             if selected_assessment_id:
