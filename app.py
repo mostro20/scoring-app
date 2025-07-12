@@ -331,8 +331,10 @@ def create_app():
             })
             if not score.finalised:
                 entry["finalised"] = False
+
             entry["scores"].append({
                 "application": application,
+                "criteria": criteria,
                 "weighted": w
             })
         for entry in panel_breakdown.values():
@@ -355,15 +357,21 @@ def create_app():
                 }
             asc[assessor.id]["total_weighted"] += w
 
-        # flatten into a list and sort each application’s assessors by score
         app_breakdown_list = []
         for entry in app_breakdown.values():
             scores = list(entry["assessor_scores"].values())
+            # sort the assessors for display
             scores.sort(key=lambda x: x["total_weighted"], reverse=True)
+            # compute the average weighted (0–10)
+            avg_w = sum(item["total_weighted"] for item in scores) / len(scores) if scores else 0
             app_breakdown_list.append({
                 "application": entry["application"],
-                "scores": scores
+                "scores": scores,
+                "avg_weighted": avg_w
             })
+
+        # now sort applications by that average descending
+        app_breakdown_list.sort(key=lambda x: x["avg_weighted"], reverse=True)
 
         return render_template(
             'admin_scores_summary.html',

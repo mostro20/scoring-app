@@ -69,13 +69,19 @@
             <thead>
                 <tr>
                 <th>Application</th>
+                <th>Criteria</th>
                 <th class="text-end">Weighted Score</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in pb.scores %}
                 <tr>
-                <td>{{ item.application.code }}</td>
+                <td>
+                  {{ item.application.code }}
+                </td>
+                <td>
+                  {{ item.criteria.description }}
+                </td>
                 <td class="text-end">{{ item.weighted | round(2) * 10 }}</td>
                 </tr>
                 {% endfor %}
@@ -84,37 +90,62 @@
         {% endfor %}
 
         <a name="appbreak"></a><h2><i class="bi bi-clipboard-data-fill"></i> Application Breakdown</h2>
-      {% for ab in app_breakdown %}
-        <h4 class="h5"><i class="bi bi-clipboard2-check"></i> {{ ab.application.code }}</h4>
-        <table class="table table-sm table-striped mb-4">
-          <thead>
-            <tr>
-              <th>Assessor</th>
-              <th class="text-end">Weighted Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for item in ab.scores %}
-            <tr>
-              <td>{{ item.assessor.name }}</td>
-              {# convert the 0–10 sum into 0–100 scale by ×10 #}
-              <td class="text-end">{{ (item.total_weighted * 10) | round(2) }} / 100</td>
-            </tr>
-            {% endfor %}
-
+        <div class="accordion" id="appBreakdownAccordion">
+          {% for ab in app_breakdown %}
+          <div class="accordion-item">
             {% set total = ab.scores | sum(attribute='total_weighted') %}
             {% set avg   = ((total / (ab.scores|length)) * 10) | round(2) %}
+            <h2 class="accordion-header" id="heading-{{ ab.application.id }}">
+              <button
+                class="accordion-button collapsed"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#collapse-{{ ab.application.id }}"
+                aria-expanded="false"
+                aria-controls="collapse-{{ ab.application.id }}"
+              >
+                <i class="bi bi-clipboard2-check me-2"></i>
+                {{ ab.application.code }} ||&nbsp; <strong> Overall score {{ avg }}</strong>
+              </button>
+            </h2>
+            <div
+              id="collapse-{{ ab.application.id }}"
+              class="accordion-collapse collapse"
+              aria-labelledby="heading-{{ ab.application.id }}"
+              data-bs-parent="#appBreakdownAccordion"
+            >
+              <div class="accordion-body p-0">
+                <table class="table table-sm table-striped mb-4 mb-0">
+                  <thead>
+                    <tr>
+                      <th>Assessor</th>
+                      <th class="text-end">Weighted Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for item in ab.scores %}
+                    <tr>
+                      <td>{{ item.assessor.name }}</td>
+                      <td class="text-end">{{ (item.total_weighted * 10) | round(2) }} / 100</td>
+                    </tr>
+                    {% endfor %}
 
-            <tr class="table-secondary">
-              <td><strong>Average</strong></td>
-              <td class="text-end"><strong>{{ avg }} / 100</strong></td>
-            </tr>
-          </tbody>
-        </table>
-      {% endfor %}
+                    <tr class="table-secondary">
+                      <td><strong>Average</strong></td>
+                      <td class="text-end"><strong>{{ avg }} / 100</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
         {% endif %}
 
+        <p>&nbsp;</p>
 
+        <hr>
         
     </div>
   </div>
