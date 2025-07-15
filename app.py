@@ -306,11 +306,18 @@ def create_app():
         assessments = Assessment.query.order_by(Assessment.name).all()
         selected_assessment = None
         raw_scores = []
+        criteria_list = []
 
         if request.method == 'POST':
             aid = request.form.get('assessment_id')
             if aid:
                 selected_assessment = Assessment.query.get(aid)
+
+                # load the criteria for headers
+                criteria_list = Criteria.query.filter_by(
+                    assessment_id=selected_assessment.id
+                ).order_by(Criteria.id).all()
+
                 raw_scores = (
                     db.session.query(Score, Assessor, Application, Criteria)
                     .join(Assessor, Score.assessor_id == Assessor.id)
@@ -347,30 +354,29 @@ def create_app():
             w = (score.score * criteria.weight) / 100
             entry = app_breakdown.setdefault(application.id, {
                 "application": application,
-                "assessor_scores": {}
+                "assessors": {}
             })
-            asc = entry["assessor_scores"]
-            if assessor.id not in asc:
-                asc[assessor.id] = {
-                    "assessor": assessor,
-                    "total_weighted": 0
-                }
-            asc[assessor.id]["total_weighted"] += w
+            asc = entry["assessors"].setdefault(assessor.id, {
+                "assessor": assessor,
+                "weights": {},
+                "total_weighted": 0
+            })
+            asc["weights"][criteria.id] = w
+            asc["total_weighted"] += w
 
+        # flatten and compute averages
         app_breakdown_list = []
         for entry in app_breakdown.values():
-            scores = list(entry["assessor_scores"].values())
-            # sort the assessors for display
-            scores.sort(key=lambda x: x["total_weighted"], reverse=True)
-            # compute the average weighted (0–10)
-            avg_w = sum(item["total_weighted"] for item in scores) / len(scores) if scores else 0
+            rows = list(entry["assessors"].values())
+            # average across assessors of total_weighted
+            avg_w = (sum(r["total_weighted"] for r in rows) / len(rows)) if rows else 0
             app_breakdown_list.append({
-                "application": entry["application"],
-                "scores": scores,
-                "avg_weighted": avg_w
+                "application":   entry["application"],
+                "assessors":     rows,
+                "avg_weighted":  avg_w
             })
 
-        # now sort applications by that average descending
+        # sort by average descending
         app_breakdown_list.sort(key=lambda x: x["avg_weighted"], reverse=True)
 
         return render_template(
@@ -378,7 +384,8 @@ def create_app():
             assessments=assessments,
             selected_assessment=selected_assessment,
             panel_breakdown=panel_breakdown_list,
-            app_breakdown=app_breakdown_list
+            app_breakdown=app_breakdown_list,
+            criteria_list=criteria_list
         )
 
     @app.route('/admin/scores/publish', methods=['POST'])
