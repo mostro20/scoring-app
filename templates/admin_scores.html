@@ -302,24 +302,27 @@
             new bootstrap.Tooltip(el);
           });
         });
+
+        function formatCurrency(num) {
+          // always show two decimals, then insert commas every three digits
+          return '$' + num
+            .toFixed(2)
+            .replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
         function updateTotals() {
           let totalReq = 0, totalGiven = 0;
-
-          // Sum all "funding_requested-<id>" inputs
           document.querySelectorAll('input[name^="funding_requested-"]').forEach(el => {
             const v = parseFloat(el.value);
             if (!isNaN(v)) totalReq += v;
           });
-
-          // Sum all "funding_given-<id>" inputs
           document.querySelectorAll('input[name^="funding_given-"]').forEach(el => {
             const v = parseFloat(el.value);
             if (!isNaN(v)) totalGiven += v;
           });
 
-          // Update the totals in the table
-          document.getElementById('totalRequested').textContent = totalReq.toFixed(2);
-          document.getElementById('totalGiven').textContent     = totalGiven.toFixed(2);
+          document.getElementById('totalRequested').textContent = formatCurrency(totalReq);
+          document.getElementById('totalGiven').   textContent = formatCurrency(totalGiven);
         }
 
         // Wire it up: recalc on any change
