@@ -7,11 +7,12 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" type="text/css" href="/static/styles.css" /> 
     <link rel="stylesheet" type="text/css" href="/static/table-styles.css" />
+    <link rel="stylesheet" href="/static/print.css" media="print">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
   </head>
   <body>
     <div class="container">
-        <nav class="navbar navbar-expand-lg bg-body-tertiary">
+        <nav class="navbar navbar-expand-lg bg-body-tertiary hide-from-print-summary">
           <div class="container-fluid">
             <img src="/static/HNC-logo-lockup-color.svg" alt="Logo" width="250" class="d-inline-block align-text-top">
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
@@ -31,7 +32,7 @@
       <h1>Review scores and publish to Folio</h1>
 
         <form method="POST" action="{{ url_for('admin_scores') }}" id="review-scores">
-          <div class="mb-3">
+          <div class="mb-3 hide-from-print-summary">
             <label for="assessment">Select Assessment:</label>
             <select class="form-select" name="assessment_id" id="assessment" required>
               <option value="">--Select an assessment--</option>
@@ -43,16 +44,16 @@
               {% endfor %}
             </select>
           </div>
-          <div class="mb-3">
+          <div class="mb-3  hide-from-print-summary">
             <button type="submit" class="btn btn-primary"><i class="bi bi-file-earmark-arrow-down"></i> Load assessment scores</button>
           </div>
         </form>
 
       {% if selected_assessment %}
 
-        <hr>
+        <hr class="hide-from-print-summary">
 
-        <p>
+        <p class="hide-from-print-summary">
           <i class="bi bi-arrow-down"></i> <a href="#outcome">Skip to outcome assessment table</a>
            | 
           <i class="bi bi-arrow-down"></i> <a href="#audit">Skip to individual assessor's scores</a> 
@@ -178,7 +179,7 @@
         </form>
 
         
-          <h2 class="mt-4">
+          <h2 class="mt-4 hide-from-print-summary">
             <a name="audit"></a>
             <i class="bi bi-people"></i> Individual Assessor's Scores
             <div class="input-group data-filter float-end">
@@ -186,7 +187,7 @@
                 <input type="text" class="form-control" placeholder="Filter entries" data-filter-for="auditScores">
             </div>
           </h2>
-          <table class="table table-bordered" id="auditScores">
+          <table class="table table-bordered hide-from-print-summary" id="auditScores">
             <thead>
               <tr>
                 <th>Assessor</th>
@@ -235,18 +236,18 @@
         </div>
 
         
-        <h2>Publish Scores</h2>
-        <p>This will publish the results of the assessment directly to Folio.</p>
+        <h2 class="hide-from-print-summary">Publish Scores</h2>
+        <p class="hide-from-print-summary">This will publish the results of the assessment directly to Folio.</p>
         <!-- Publish form -->
         <form method="POST" action="{{ url_for('publish_scores') }}" id="publish-form" class="form-floating">
-          <div class="mb-3">
+          <div class="mb-3 hide-from-print-summary">
             <!-- Pass along the assessment id -->
             <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
             <!-- Let admin enter the Folio key -->
             <label for="form_key" class="form-label">Enter Folio Key:</label>
             <input type="text" class="form-control" name="form_key" id="form_key" value="GRPR-XX" required>
           </div>
-          <div class="mb-3">
+          <div class="mb-3 hide-from-print-summary">
             <!-- Dropdown for selecting the round -->
             <label for="round" class="form-label">Select Round:</label>
             <select name="round" id="round" class="form-select" required>
@@ -259,7 +260,7 @@
           </div>
           <!-- Hidden field for the combined HTML -->
           <input type="hidden" name="table_html" id="table_html">
-          <div class="mb-3">
+          <div class="mb-3 hide-from-print-summary">
             <input type="submit" value="Publish Scores" class="btn btn-primary">
           </div>
         </form>
