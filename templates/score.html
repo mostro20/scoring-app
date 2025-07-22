@@ -13,18 +13,33 @@
     <div class="container my-4">
       <h1 class="mb-4">Evaluation Portal - Assessment Scoring</h1>
       <p class="hide-from-print-summary">
-        Please give a score from 0-10 in each criteria for every application, along with remarks to justify your scoring. 
-        You can save progress and continue your scoring at any time using your unique URL and access code.
-        The PDF preview on the right hand side provides a brief summary of each application only.
+        Please score each criteria for every application from 0-10, along with remarks to justify your scoring. 
+        Your scores and comments will automatically save as you progress through your scoring. 
+        You may exit and re-enter the portal using your unique URL and access code to continue scoring at any time. 
+        The PDF preview on the right hand side provides a brief summary of each application only. 
+        You can minimise this view and expand the scoring panel at any time. 
+        Access each application in full by following the link to the panel folder. 
       </p>
-      {% if assessment.sharepoint_dir %}
-      <p class="hide-from-print-summary">Access each application in full by following the link to the panel folder here: <a href="{{ assessment.sharepoint_dir }}">{{ assessment.sharepoint_dir }}</a></p>
+      <ul class="hide-from-print-summary">
+      {% if assessment.sharepoint_dir %}      
+        <li><a href="{{ assessment.sharepoint_dir }}">Access the panel folder</a></li>
       {% endif %}
       {% if assessment.pdf_score_filename %}
-      <p class="hide-from-print-summary"><a href="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) }}">Download the scoring guide</a></p>
+        <li><a href="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) }}">Download the scoring guide</a></li>
       {% endif %}
+      </ul>
       <div class="row">
-        <div class="col-md-5">
+        <div class="col-md-12">
+          <div class="float-end hide-from-print-summary mb-2">
+                <!-- PDF toggle button -->
+                <button
+                  type="button"
+                  id="togglePdfBtn"
+                  class="btn btn-outline-secondary btn-sm me-2"
+                >Hide PDF</button>
+          </div>
+        </div>
+        <div id="scoringCol" class="col-md-5">
           <form method="POST" action="{{ url_for('score', token=token) }}">
             <!-- Accordion to collapse each application section -->
             <div class="accordion" id="appAccordion">
@@ -57,17 +72,16 @@
                           {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
                           >
                         <label for="comment-{{ app.id }}-{{ crit.id }}" class="hide-from-print-summary">
-                          <small><em>Provide remarks up to 255 characters for {{ crit.description }}</em></small>
+                          <small><em>Provide remarks for {{ crit.description }}</em></small>
                         </label>
-                        <input
-                          type="text"
+                        <textarea
                           placeholder="Your remarks"
-                          class="form-control"
+                          class="form-control auto-resize-textarea"
                           name="comment-{{ app.id }}-{{ crit.id }}"
                           id="comment-{{ app.id }}-{{ crit.id }}"
-                          value="{{ score_dict[key].comment if key in score_dict else '' }}"
+                          rows="2"
                           {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
-                          >
+                        >{{ score_dict[key].comment if key in score_dict else '' }}</textarea>
                       </div>
                       <hr>
                     {% endfor %}
@@ -78,24 +92,12 @@
             </div>
             <div class="mt-3">
               <div class="d-flex justify-content-end hide-from-print-summary">
-
                 <button 
                   class="btn btn-outline-secondary btn-sm me-2" 
                   onclick="window.print()"
                   >
                   🖨️ Summary view
                 </button>
-
-                <!--<button
-                  id="saveBtn"
-                  type="submit"
-                  name="action"
-                  value="save"
-                  class="btn btn-secondary btn-sm me-2"
-                  {% if is_finalised %}disabled{% endif %}
-                >
-                  Save progress
-                </button>-->
 
                 <button
                   type="submit"
@@ -111,7 +113,7 @@
             </div>
           </form>
         </div>
-        <div class="col-md-7 hide-from-print-summary">
+        <div id="pdfCol" class="col-md-7 hide-from-print-summary">
           {% if assessment.pdf_filename %}
             <iframe src="{{ url_for('uploaded_file', filename=assessment.pdf_filename) }}"
                     width="100%" height="1200px" class="border"></iframe>
@@ -203,13 +205,15 @@
             if (span) span.textContent = total.toFixed(2);
           }
 
-          // attach blur listeners to every score/comment input
-          document.querySelectorAll('input[name^="score-"], input[name^="comment-"]').forEach(input => {
-            input.addEventListener('blur', function(){
+              // attach blur listeners to every score input and every comment textarea
+            document.querySelectorAll(
+                'input[name^="score-"], textarea[name^="comment-"]'
+              ).forEach(el => {
+              el.addEventListener('blur', function(){
               // name is "score-<appId>-<critId>" or "comment-<appId>-<critId>"
-              let [type, appId, critId] = this.name.split('-');
-              let scoreField   = document.querySelector(`input[name="score-${appId}-${critId}"]`);
-              let commentField = document.querySelector(`input[name="comment-${appId}-${critId}"]`);
+                let [type, appId, critId] = this.name.split('-');
+                let scoreField   = document.querySelector(`input[name="score-${appId}-${critId}"]`);
+                let commentField = document.querySelector(`textarea[name="comment-${appId}-${critId}"]`);
 
               autosave({
                 application_id: parseInt(appId, 10),
@@ -222,6 +226,38 @@
 
             });
           });
+
+          document.addEventListener('DOMContentLoaded', function(){
+            const scoringCol = document.getElementById('scoringCol');
+            const pdfCol     = document.getElementById('pdfCol');
+            const toggleBtn  = document.getElementById('togglePdfBtn');
+
+            toggleBtn.addEventListener('click', () => {
+              const hidden = pdfCol.classList.toggle('d-none'); 
+              // swap column widths
+              scoringCol.classList.toggle('col-md-5', !hidden);
+              scoringCol.classList.toggle('col-md-12', hidden);
+
+              // update button text
+              toggleBtn.textContent = hidden ? 'Show PDF' : 'Hide PDF';
+            });
+          });
+
+          document.addEventListener('DOMContentLoaded', () => {
+            // find all the new textareas
+            document.querySelectorAll('.auto-resize-textarea').forEach(textarea => {
+              // set initial height
+              textarea.style.height = textarea.scrollHeight + 'px';
+              textarea.style.overflowY = 'hidden';
+
+              // on input, reset height then expand to fit content
+              textarea.addEventListener('input', () => {
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+              });
+            });
+          });
+
         </script>
   </body>
 </html>
