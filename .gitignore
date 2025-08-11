@@ -5,3 +5,4 @@ api-reference.md
 venv/
 uploads/*
 report_processing/*
+instance/*
