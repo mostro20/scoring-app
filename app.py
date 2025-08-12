@@ -2,6 +2,7 @@
 import os, secrets, time, requests, json, re
 from flask import Flask, session, render_template, request, redirect, url_for, flash, session, send_from_directory, jsonify
 from extensions import db
+from flask_migrate import Migrate
 from functools import wraps
 import models
 import time
@@ -30,9 +31,11 @@ def create_app():
     
     # Initialize the shared SQLAlchemy instance with this app
     db.init_app(app)
+
+    migrate = Migrate(app, db, render_as_batch=True)
     
     # Import models after db.init_app to ensure they are registered
-    from models import Application, Criteria, Assessor, Score, Assessment
+    from models import Application, Criteria, Assessor, Score, Assessment, ScoreHistory
 
     def get_token():
         """Fetch a new token if expired or missing."""
@@ -280,104 +283,117 @@ def create_app():
     @app.route('/admin/edit-score/<int:score_id>', methods=['POST'])
     @admin_login_required
     def edit_score(score_id):
-        score = Score.query.get_or_404(score_id)
-        try:
-            new_score = int(request.form.get('score'))
-            new_comment = request.form.get('comment')
+        s = Score.query.get_or_404(score_id)
+        aid = s.assessor.assessment_id
 
-            # Optional: validate score bounds again
+        try:
+            new_score   = int(request.form.get('score'))
+            new_comment = request.form.get('comment')
             if not (0 <= new_score <= 10):
                 flash("Score must be between 0 and 10.")
-                return redirect(url_for('admin_scores'))
+                return redirect(url_for('admin_scores', assessment_id=aid))
 
-            score.score = new_score
-            score.comment = new_comment
+            next_ver = (ScoreHistory.query.filter_by(score_id=s.id).count() + 1)
+            db.session.add(ScoreHistory(
+                score_id=s.id,
+                assessor_id=s.assessor_id,
+                application_id=s.application_id,
+                criteria_id=s.criteria_id,
+                previous_score=s.score,
+                previous_comment=s.comment,
+                previous_finalised=s.finalised,
+                action='admin_edit',
+                version=next_ver
+            ))
+
+            s.score   = new_score
+            s.comment = new_comment
             db.session.commit()
-            flash(f"Score updated for Assessor {score.assessor_id} - Application {score.application_id}.")
-        except Exception as e:
+            flash(f"Score #{score_id} updated.")
+        except Exception:
             db.session.rollback()
-            flash("An error occurred while updating the score.")
-
-        return redirect(url_for('admin_scores'))
+            flash("Error updating score.")
+        return redirect(url_for('admin_scores', assessment_id=aid))
 
     @app.route('/admin/scores/summary', methods=['GET', 'POST'])
     @admin_login_required
     def admin_scores_summary():
         assessments = Assessment.query.order_by(Assessment.name).all()
+
         selected_assessment = None
-        raw_scores = []
         criteria_list = []
-
-        if request.method == 'POST':
-            aid = request.form.get('assessment_id')
-            if aid:
-                selected_assessment = Assessment.query.get(aid)
-
-                # load the criteria for headers
-                criteria_list = Criteria.query.filter_by(
-                    assessment_id=selected_assessment.id
-                ).order_by(Criteria.id).all()
-
-                raw_scores = (
-                    db.session.query(Score, Assessor, Application, Criteria)
-                    .join(Assessor, Score.assessor_id == Assessor.id)
-                    .join(Application, Score.application_id == Application.id)
-                    .join(Criteria, Score.criteria_id == Criteria.id)
-                    .filter(Assessor.assessment_id == selected_assessment.id)
-                    .all()
-                )
-
-        # 3) Build the panel-member breakdown
-        panel_breakdown = {}
-        for score, assessor, application, criteria in raw_scores:
-            w = (score.score * criteria.weight) / 100
-            entry = panel_breakdown.setdefault(assessor.id, {
-                "assessor": assessor,
-                "scores": [],
-                "finalised": True
-            })
-            if not score.finalised:
-                entry["finalised"] = False
-
-            entry["scores"].append({
-                "application": application,
-                "criteria": criteria,
-                "weighted": w
-            })
-        for entry in panel_breakdown.values():
-            entry["scores"].sort(key=lambda x: x["weighted"], reverse=True)
-        panel_breakdown_list = list(panel_breakdown.values())
-
-        # 4) Build the application-centric breakdown (aggregated per assessor)
-        app_breakdown = {}
-        for score, assessor, application, criteria in raw_scores:
-            w = (score.score * criteria.weight) / 100
-            entry = app_breakdown.setdefault(application.id, {
-                "application": application,
-                "assessors": {}
-            })
-            asc = entry["assessors"].setdefault(assessor.id, {
-                "assessor": assessor,
-                "weights": {},
-                "total_weighted": 0
-            })
-            asc["weights"][criteria.id] = w
-            asc["total_weighted"] += w
-
-        # flatten and compute averages
+        panel_breakdown_list = []   # ← safe defaults
         app_breakdown_list = []
-        for entry in app_breakdown.values():
-            rows = list(entry["assessors"].values())
-            # average across assessors of total_weighted
-            avg_w = (sum(r["total_weighted"] for r in rows) / len(rows)) if rows else 0
-            app_breakdown_list.append({
-                "application":   entry["application"],
-                "assessors":     rows,
-                "avg_weighted":  avg_w
-            })
 
-        # sort by average descending
-        app_breakdown_list.sort(key=lambda x: x["avg_weighted"], reverse=True)
+        # accept assessment_id from POST or GET
+        aid = request.values.get('assessment_id')
+
+        if aid:
+            selected_assessment = Assessment.query.get(aid)
+
+            # load criteria for headers
+            criteria_list = (Criteria.query
+                            .filter_by(assessment_id=selected_assessment.id)
+                            .order_by(Criteria.id)
+                            .all())
+
+            raw_scores = (
+                db.session.query(Score, Assessor, Application, Criteria)
+                .join(Assessor, Score.assessor_id == Assessor.id)
+                .join(Application, Score.application_id == Application.id)
+                .join(Criteria, Score.criteria_id == Criteria.id)
+                .filter(Assessor.assessment_id == selected_assessment.id)
+                .all()
+            )
+
+            # 1) Panel-member breakdown
+            panel_breakdown = {}
+            for score, assessor, application, criteria in raw_scores:
+                w = (score.score * criteria.weight) / 100
+                entry = panel_breakdown.setdefault(assessor.id, {
+                    "assessor": assessor,
+                    "scores": [],
+                    "finalised": True
+                })
+                if not score.finalised:
+                    entry["finalised"] = False
+                entry["scores"].append({
+                    "application": application,
+                    "criteria": criteria,
+                    "weighted": w,
+                    "comment": score.comment,
+                })
+            # sort by application id then criteria id
+            for entry in panel_breakdown.values():
+                entry["scores"].sort(key=lambda x: (x["application"].id, x["criteria"].id))
+            panel_breakdown_list = list(panel_breakdown.values())
+
+            # 2) Application-centric breakdown (per assessor, with per-criterion weights)
+            app_breakdown = {}
+            for score, assessor, application, criteria in raw_scores:
+                w = (score.score * criteria.weight) / 100
+                entry = app_breakdown.setdefault(application.id, {
+                    "application": application,
+                    "assessors": {}
+                })
+                asc = entry["assessors"].setdefault(assessor.id, {
+                    "assessor": assessor,
+                    "weights": {},
+                    "total_weighted": 0
+                })
+                asc["weights"][criteria.id] = w
+                asc["total_weighted"] += w
+
+            # flatten and compute averages; sort apps by avg desc
+            for entry in app_breakdown.values():
+                rows = list(entry["assessors"].values())
+                avg_w = (sum(r["total_weighted"] for r in rows) / len(rows)) if rows else 0
+                app_breakdown_list.append({
+                    "application":  entry["application"],
+                    "assessors":    rows,
+                    "avg_weighted": avg_w
+                })
+            app_breakdown_list.sort(key=lambda x: x["avg_weighted"], reverse=True)
 
         return render_template(
             'admin_scores_summary.html',
@@ -387,6 +403,34 @@ def create_app():
             app_breakdown=app_breakdown_list,
             criteria_list=criteria_list
         )
+    
+    @app.route('/admin/reopen-assessor/<int:assessor_id>', methods=['POST'])
+    @admin_login_required
+    def reopen_assessor(assessor_id):
+        assessor = Assessor.query.get_or_404(assessor_id)
+        aid = assessor.assessment_id
+
+        scores = Score.query.filter_by(assessor_id=assessor_id).all()
+        for s in scores:
+            # next version number for this score
+            next_ver = (ScoreHistory.query.filter_by(score_id=s.id).count() + 1)
+            db.session.add(ScoreHistory(
+                score_id=s.id,
+                assessor_id=s.assessor_id,
+                application_id=s.application_id,
+                criteria_id=s.criteria_id,
+                previous_score=s.score,
+                previous_comment=s.comment,
+                previous_finalised=s.finalised,
+                action='reopen',
+                version=next_ver
+            ))
+            s.finalised = False
+
+        db.session.commit()
+        flash(f"Reopened scoring for {assessor.name}. Previous state archived.")
+        # pass assessment_id so page reloads with the same selection
+        return redirect(url_for('admin_scores_summary', assessment_id=aid))
 
     @app.route('/admin/scores/publish', methods=['POST'])
     @admin_login_required
