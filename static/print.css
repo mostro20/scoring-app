@@ -22,12 +22,21 @@
     color: black;
   }
 
+  .accordion-body {
+    overflow: visible !important;
+  }
+
   /* 3) Turn your form inputs into plain text */
   input.form-control,
   textarea.form-control {
     border: none        !important;
     background: transparent !important;
     box-shadow: none    !important;
+    overflow: visible !important;
+  }
+
+  textarea.form-control {
+    min-height: 80px;
   }
 
   /* 4) Hide anything that isn’t content */

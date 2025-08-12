@@ -87,7 +87,7 @@
                       <th>Assessor</th>
                       {# one header per criterion #}
                       {% for crit in criteria_list %}
-                      <th>{{ crit.description }}</th>
+                      <th class="text-center">{{ crit.description }} <small>({{ crit.weight }}%)</small></th>
                       {% endfor %}
                       <th class="text-end">Weighted Total</th>
                     </tr>
@@ -98,7 +98,7 @@
                       <td>{{ row.assessor.name }}</td>
                       {# each criterion's weighted score #}
                       {% for crit in criteria_list %}
-                      <td class="text-middle">
+                      <td class="text-center">
                         {{ (row.weights[crit.id] * 10) | round(2) if crit.id in row.weights else '' }}
                       </td>
                       {% endfor %}
@@ -141,6 +141,7 @@
                 <tr>
                 <th>Application</th>
                 <th>Criteria</th>
+                <th>Description</th>
                 <th class="text-end">Weighted Score</th>
                 </tr>
             </thead>
@@ -152,6 +153,9 @@
                 </td>
                 <td>
                   {{ item.criteria.description }}
+                </td>
+                <td>
+                  {{ item.comment or '' }}
                 </td>
                 <td class="text-end">{{ item.weighted | round(2) * 10 }}</td>
                 </tr>

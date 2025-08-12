@@ -327,26 +327,30 @@ def create_app():
                     .all()
                 )
 
-        # 3) Build the panel-member breakdown
-        panel_breakdown = {}
-        for score, assessor, application, criteria in raw_scores:
-            w = (score.score * criteria.weight) / 100
-            entry = panel_breakdown.setdefault(assessor.id, {
-                "assessor": assessor,
-                "scores": [],
-                "finalised": True
-            })
-            if not score.finalised:
-                entry["finalised"] = False
+            # 3) Build the panel-member breakdown
+            panel_breakdown = {}
+            for score, assessor, application, criteria in raw_scores:
+                w = (score.score * criteria.weight) / 100
+                entry = panel_breakdown.setdefault(assessor.id, {
+                    "assessor": assessor,
+                    "scores": [],
+                    "finalised": True
+                })
+                if not score.finalised:
+                    entry["finalised"] = False
 
-            entry["scores"].append({
-                "application": application,
-                "criteria": criteria,
-                "weighted": w
-            })
-        for entry in panel_breakdown.values():
-            entry["scores"].sort(key=lambda x: x["weighted"], reverse=True)
-        panel_breakdown_list = list(panel_breakdown.values())
+                entry["scores"].append({
+                    "application": application,
+                    "criteria":    criteria,
+                    "weighted":    w,
+                    "comment":     score.comment,   # ← include assessor comment
+                })
+
+            # sort each assessor's rows by application id (then by criteria id)
+            for entry in panel_breakdown.values():
+                entry["scores"].sort(key=lambda x: (x["application"].id, x["criteria"].id))
+
+            panel_breakdown_list = list(panel_breakdown.values())
 
         # 4) Build the application-centric breakdown (aggregated per assessor)
         app_breakdown = {}
