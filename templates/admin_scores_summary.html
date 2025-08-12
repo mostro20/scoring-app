@@ -126,15 +126,22 @@
         <a name="appbreak"></a><h2 class="hide-from-print-summary"><i class="bi bi-window-plus"></i> Panel-Member Breakdown</h2>
         {% for pb in panel_breakdown %}
             <h4 class="h5 hide-from-print-summary">
-              <i class="bi bi-person-circle"></i> 
-              {{ pb.assessor.name }}
-              <span class="small text-muted">[
-                {% if pb.finalised %}
-                  scoring finalised
-                {% else %}
-                  scoring in progress
-                {% endif %}
-              ]</span>
+              <i class="bi bi-person-circle"></i> {{ pb.assessor.name }}
+              <span class="small text-muted">
+                [ {{ 'scoring finalised' if pb.finalised else 'scoring in progress' }} ]
+              </span>
+
+              {% if pb.finalised %}
+              <form
+                method="POST"
+                action="{{ url_for('reopen_assessor', assessor_id=pb.assessor.id) }}"
+                class="d-inline ms-2"
+                onsubmit="return confirm('Reopen scoring for {{ pb.assessor.name }}? Previous scores will be archived.');"
+              >
+                <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
+                <button class="btn btn-sm btn-outline-warning">Reopen scoring</button>
+              </form>
+              {% endif %}
             </h4>
             <table class="table table-sm table-striped mb-4 hide-from-print-summary">
             <thead>
