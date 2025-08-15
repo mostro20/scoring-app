@@ -8,6 +8,7 @@ import models
 import time
 from itsdangerous import URLSafeSerializer
 from datetime import timedelta
+from flask_simple_captcha import CAPTCHA
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 load_dotenv('.env')
@@ -21,6 +22,15 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scoring.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['UPLOAD_FOLDER'] = 'uploads'
+    SIMPLE_CAPTCHA = CAPTCHA(config={
+        # keep this stable in env, e.g. CAPTCHA_SECRET="a-long-random-string"
+        'SECRET_CAPTCHA_KEY': os.environ.get('CAPTCHA_SECRET') or secrets.token_urlsafe(48),
+        'CAPTCHA_LENGTH': 9,
+        'CAPTCHA_DIGITS': True,
+        'EXPIRE_SECONDS': 86400,
+        'CAPTCHA_IMG_FORMAT': 'JPEG'
+    })
+    SIMPLE_CAPTCHA.init_app(app)
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     API_URL       = os.getenv('api_url_var')
     CLIENT_ID     = os.getenv('client_id_var')
@@ -59,27 +69,32 @@ def create_app():
 
     def admin_login_required(f):
         @wraps(f)
-        def decorated_function(*args, **kwargs):
-            if not session.get('admin_authenticated'):
-                # Redirect to a login page and pass the next parameter so you can redirect back after login.
+        def wrapper(*args, **kwargs):
+            if not session.get('admin_authed'):
+                # send them to the login route which creates the captcha
                 return redirect(url_for('admin_login', next=request.url))
             return f(*args, **kwargs)
-        return decorated_function
+        return wrapper
 
     @app.route('/admin/login', methods=['GET', 'POST'])
     def admin_login():
         if request.method == 'POST':
-            keyphrase = request.form.get('keyphrase')
-            if keyphrase == app.config.get('ADMIN_KEYPHRASE', 'your_default_keyphrase'):
-                session['admin_authenticated'] = True
-                session.permanent = True
-                flash("Logged in successfully!")
-                next_url = request.args.get('next')
-                return redirect(next_url or url_for('admin'))
+            c_hash = request.form.get('captcha-hash')
+            c_text = request.form.get('captcha-text')
+            if not SIMPLE_CAPTCHA.verify(c_text, c_hash):
+                flash("CAPTCHA failed. Please try again.")
+                return render_template('admin_login.html', captcha=SIMPLE_CAPTCHA.create())
+            keyphrase = request.form.get('keyphrase', '')
+            if keyphrase == os.environ.get('ADMIN_KEYPHRASE'):
+                session['admin_authed'] = True
+                dest = request.args.get('next') or url_for('admin')  # or wherever your admin home is
+                return redirect(dest)
             else:
-                flash("Invalid keyphrase. Please try again.")
-                return redirect(url_for('admin_login'))
-        return render_template('admin_login.html')
+                flash("Invalid keyphrase.")
+                return render_template('admin_login.html', captcha=SIMPLE_CAPTCHA.create())
+
+        # GET
+        return render_template('admin_login.html', captcha=SIMPLE_CAPTCHA.create())
 
     @app.route('/')
     def index():
