@@ -40,3 +40,12 @@ h2 {
 hr {
     border-color:#008480;
 }
+
+/*captcha*/
+
+.simple-captcha-text,
+.captcha-text {
+    display: block;
+    margin: 5px 0;
+    padding: 0;
+}
