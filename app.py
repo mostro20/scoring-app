@@ -25,9 +25,9 @@ def create_app():
     SIMPLE_CAPTCHA = CAPTCHA(config={
         # keep this stable in env, e.g. CAPTCHA_SECRET="a-long-random-string"
         'SECRET_CAPTCHA_KEY': os.environ.get('CAPTCHA_SECRET') or secrets.token_urlsafe(48),
-        'CAPTCHA_LENGTH': 9,
+        'CAPTCHA_LENGTH': 7,
         'CAPTCHA_DIGITS': True,
-        'EXPIRE_SECONDS': 86400,
+        'EXPIRE_SECONDS': 3600,
         'CAPTCHA_IMG_FORMAT': 'JPEG'
     })
     SIMPLE_CAPTCHA.init_app(app)

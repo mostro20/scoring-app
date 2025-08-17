@@ -14,14 +14,14 @@
             <form method="post">
                 <label for="keyphrase" class="form-label">Keyphrase:</label>
                 <input type="password" name="keyphrase" class="form-control" id="keyphrase" placeholder="Enter keyphrase" aria-describedby="passwordHelpBlock" required>
-                <br>
-                {{ captcha_html(captcha)|safe }}
-                <a href="" onclick="this.closest('form').reset(); location.reload(); return false;">New image</a>
                 <div id="passwordHelpBlock" class="form-text">
                     Enter the HNC assessor admin keyphrase. Login will be valid for 24 hours.
                 </div>
+                <br>
+                {{ captcha_html(captcha)|safe }}
+                <a class="captcha-text small" href="" onclick="this.closest('form').reset(); location.reload(); return false;">New image</a>
+                
                 <button class="btn btn-primary mb-3 mt-3" type="submit">Login</button>
-
             </form>
             {% with messages = get_flashed_messages() %}
             {% if messages %}
