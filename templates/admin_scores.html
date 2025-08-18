@@ -204,7 +204,7 @@
               {% for score, assessor, application, criteria, weighted in detailed_scores %}
                 <tr>
                   <form method="POST" action="{{ url_for('edit_score', score_id=score.id) }}">
-                    <td>{{ assessor.name }}</td>
+                    <td><a name="auditScores-{{ score.id }}"></a>{{ assessor.name }}</td>
                     <td>{{ application.code }}</td>
                     <td>{{ criteria.description }}</td>
                     <td>
