@@ -234,11 +234,11 @@ def create_app():
                         url_for('admin_scores', assessment_id=aid) + '#outcome'
                     )
 
-        # existing “select assessment to view scores” logic
-        if request.method == 'POST':
-            selected_assessment_id = request.form.get('assessment_id')
-            if selected_assessment_id:
-                selected_assessment = Assessment.query.get(selected_assessment_id)
+        # --- LOAD SELECTED ASSESSMENT ON GET or POST ---
+        sid = request.values.get('assessment_id')  # works for ?assessment_id=... and form POST
+        if sid:
+            selected_assessment = Assessment.query.get(sid)
+            if selected_assessment:
                 raw_scores = (
                     db.session.query(Score, Assessor, Application, Criteria)
                     .join(Assessor, Score.assessor_id == Assessor.id)
@@ -247,8 +247,8 @@ def create_app():
                     .filter(Assessor.assessment_id == selected_assessment.id)
                     .all()
                 )
-        
-        # Detailed scores list (for original table)
+
+        # --- Build tables as before ---
         detailed_scores = []
         # Group responses by application to compute summary (grouped by KEY)
         grouped = {}
@@ -328,7 +328,10 @@ def create_app():
         except Exception:
             db.session.rollback()
             flash("Error updating score.")
-        return redirect(url_for('admin_scores', assessment_id=aid))
+        return redirect(
+            url_for('admin_scores', assessment_id=aid, _anchor=f'auditScores-{score_id}')
+        )
+
 
     @app.route('/admin/scores/summary', methods=['GET', 'POST'])
     @admin_login_required
