@@ -669,6 +669,111 @@ def create_app():
             weighted_scores=weighted_scores,
             is_finalised=is_finalised
         )
+    
+    @app.route('/admin/scores/summary-history', methods=['GET', 'POST'])
+    @admin_login_required
+    def admin_scores_summary_history():
+        assessments = Assessment.query.order_by(Assessment.name).all()
+        selected_assessment = None
+        criteria_list = []
+        app_breakdown_list = []
+        old_weights_map = {}  # key: "assessorId-appId-critId" -> previous weighted (0..10)
+
+        aid = request.values.get('assessment_id')
+        if not aid:
+            return render_template(
+                'admin_scores_summary_history.html',
+                assessments=assessments,
+                selected_assessment=None,
+                criteria_list=[],
+                app_breakdown=[],
+                old_weights_map={}
+            )
+
+        selected_assessment = Assessment.query.get(aid)
+        if not selected_assessment:
+            flash("Assessment not found.")
+            return render_template(
+                'admin_scores_summary_history.html',
+                assessments=assessments,
+                selected_assessment=None,
+                criteria_list=[],
+                app_breakdown=[],
+                old_weights_map={}
+            )
+
+        # Criteria for headers and weight map
+        criteria_list = (Criteria.query
+                        .filter_by(assessment_id=selected_assessment.id)
+                        .order_by(Criteria.id).all())
+        crit_weight = {c.id: c.weight for c in criteria_list}
+
+        # Current scores (as in your summary)
+        raw_scores = (
+            db.session.query(Score, Assessor, Application, Criteria)
+            .join(Assessor, Score.assessor_id == Assessor.id)
+            .join(Application, Score.application_id == Application.id)
+            .join(Criteria, Score.criteria_id == Criteria.id)
+            .filter(Assessor.assessment_id == selected_assessment.id)
+            .all()
+        )
+
+        # Build application-centric breakdown with per-criterion weights (current)
+        app_breakdown = {}
+        score_ids = []
+        for s, assessor, application, criteria in raw_scores:
+            score_ids.append(s.id)
+            w = (s.score * criteria.weight) / 100.0  # 0..10
+            entry = app_breakdown.setdefault(application.id, {
+                "application": application,
+                "assessors": {}
+            })
+            row = entry["assessors"].setdefault(assessor.id, {
+                "assessor": assessor,
+                "weights": {},         # crit.id -> current weighted (0..10)
+                "total_weighted": 0.0  # sum of current weighted (0..10)
+            })
+            row["weights"][criteria.id] = w
+            row["total_weighted"] += w
+
+        # Flatten + compute app average (current)
+        for entry in app_breakdown.values():
+            rows = list(entry["assessors"].values())
+            avg_w = (sum(r["total_weighted"] for r in rows) / len(rows)) if rows else 0.0
+            app_breakdown_list.append({
+                "application":  entry["application"],
+                "assessors":    rows,
+                "avg_weighted": avg_w
+            })
+        # Sort apps by average desc (or by code/id if you prefer)
+        app_breakdown_list.sort(key=lambda x: x["avg_weighted"], reverse=True)
+
+        # Build previous weighted map from ScoreHistory (latest version per score_id)
+        if score_ids:
+            histories = ScoreHistory.query.filter(ScoreHistory.score_id.in_(score_ids)).all()
+            latest_by_score = {}
+            for h in histories:
+                prev = latest_by_score.get(h.score_id)
+                if (prev is None) or (h.version > prev.version) or (
+                    h.version == prev.version and getattr(h, 'changed_at', None) and getattr(prev, 'changed_at', None) and h.changed_at > prev.changed_at
+                ):
+                    latest_by_score[h.score_id] = h
+
+            for h in latest_by_score.values():
+                wt = crit_weight.get(h.criteria_id, 0)  # %
+                old_w = (h.previous_score * wt) / 100.0  # 0..10
+                key = f"{h.assessor_id}-{h.application_id}-{h.criteria_id}"
+                old_weights_map[key] = old_w
+
+        return render_template(
+            'admin_scores_summary_history.html',
+            assessments=assessments,
+            selected_assessment=selected_assessment,
+            criteria_list=criteria_list,
+            app_breakdown=app_breakdown_list,
+            old_weights_map=old_weights_map
+        )
+
 
     @app.route('/score/<token>/autosave', methods=['POST'])
     def autosave_score(token):
