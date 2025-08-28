@@ -3,6 +3,7 @@ import os, secrets, time, requests, json, re
 from flask import Flask, session, render_template, request, redirect, url_for, flash, session, send_from_directory, jsonify
 from extensions import db
 from flask_migrate import Migrate
+from pathlib import Path
 from functools import wraps
 import models
 import time
@@ -10,18 +11,31 @@ from itsdangerous import URLSafeSerializer
 from datetime import timedelta
 from flask_simple_captcha import CAPTCHA
 from werkzeug.utils import secure_filename
-from dotenv import load_dotenv
-load_dotenv('.env')
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv(), override=False)
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, instance_relative_config=True)
+    os.makedirs(app.instance_path, exist_ok=True)
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     app.config['ADMIN_KEYPHRASE'] = os.getenv('ADMIN_KEYPHRASE')
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
     serializer = URLSafeSerializer(app.config['SECRET_KEY'])
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scoring.db'
+    
+    #app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scoring.db'
+    default_db_path = os.path.join(app.instance_path, "scoring.db")  # absolute path
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
+        "SQLALCHEMY_DATABASE_URI",
+        f"sqlite:///{default_db_path}"
+    )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['UPLOAD_FOLDER'] = 'uploads'
+    
+    #app.config['UPLOAD_FOLDER'] = 'uploads'
+    default_upload_dir = Path(app.instance_path) / "uploads"
+    upload_dir = os.getenv("UPLOAD_FOLDER", str(default_upload_dir))
+    Path(upload_dir).mkdir(parents=True, exist_ok=True)
+    app.config["UPLOAD_FOLDER"] = upload_dir
+    
     SIMPLE_CAPTCHA = CAPTCHA(config={
         # keep this stable in env, e.g. CAPTCHA_SECRET="a-long-random-string"
         'SECRET_CAPTCHA_KEY': os.environ.get('CAPTCHA_SECRET') or secrets.token_urlsafe(48),
@@ -184,10 +198,10 @@ def create_app():
                                 ('pdf_file_score', 'pdf_score_filename')):
                 f = request.files.get(field)
                 if f and f.filename:
-                    fn = secure_filename(f.filename)
-                    dest = os.path.join(app.config['UPLOAD_FOLDER'], fn)
+                    filename = secure_filename(f.filename)
+                    dest = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                     f.save(dest)
-                    setattr(selected, attr, fn)
+                    setattr(selected, attr, filename)
             
             db.session.commit()
             flash(aid and "Assessment updated successfully." or "New assessment created.")
@@ -549,7 +563,7 @@ def create_app():
 
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=False)
 
     @app.route('/score/<token>/login', methods=['GET', 'POST'])
     def assessor_login(token):
