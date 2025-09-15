@@ -1,5 +1,18 @@
 @media print {
   /* 1) Force all accordions open */
+
+  .accordion-body table td,
+  .accordion-body table th,
+  .accordion-body .comments-assessor {
+    font-size: 0.8em;
+  }
+
+  .accordion-header h2,
+  .accordion-header h3,
+  .accordion-body h4 {
+    font-size: 1em;
+  }
+
   .accordion-collapse.collapse {
     display: block !important;
     height: auto    !important;
@@ -52,4 +65,11 @@
     max-width: 100%  !important;
     width: 100%      !important;
   }
+
+  /* page break element*/
+
+  .report-page-break {
+      page-break-before: always;
+  }
+
 }

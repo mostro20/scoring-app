@@ -7,12 +7,19 @@ from pathlib import Path
 from functools import wraps
 import models
 import time
+import re
 from itsdangerous import URLSafeSerializer
 from datetime import timedelta
 from flask_simple_captcha import CAPTCHA
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv(), override=False)
+
+def _clean_provider_name(code: str) -> str:
+    """Strip leading digits + '.' or ':' + space, then anything from '('."""
+    s = re.sub(r'^\s*\d+[:\.]\s*', '', code or '')
+    s = re.sub(r'\s*\(.*$', '', s)
+    return s.strip()
 
 def create_app():
     app = Flask(__name__, instance_relative_config=True)
@@ -394,11 +401,33 @@ def create_app():
                     "criteria": criteria,
                     "weighted": w,
                     "comment": score.comment,
+                    "score": score.score,
                 })
             # sort by application id then criteria id
             for entry in panel_breakdown.values():
                 entry["scores"].sort(key=lambda x: (x["application"].id, x["criteria"].id))
             panel_breakdown_list = list(panel_breakdown.values())
+
+            # Group each assessor's rows by application for the accordion
+            for pb in panel_breakdown_list:
+                apps = {}
+                for item in pb["scores"]:
+                    app_id = item["application"].id
+                    block = apps.setdefault(app_id, {
+                        "application": item["application"],
+                        "criteria_items": []  # list of {criteria, weighted, comment}
+                    })
+                    block["criteria_items"].append({
+                        "criteria": item["criteria"],
+                        "score": item["score"],
+                        "weighted": item["weighted"],   # 0..10 scale here
+                        "comment":  item["comment"] or ""
+                    })
+                # sort criteria within each app by criteria.id for consistent order
+                for blk in apps.values():
+                    blk["criteria_items"].sort(key=lambda x: x["criteria"].id)
+                # save a sorted list by application.id for stable accordion order
+                pb["by_application"] = sorted(apps.values(), key=lambda x: x["application"].id)
 
             # 2) Application-centric breakdown (per assessor, with per-criterion weights)
             app_breakdown = {}
@@ -467,80 +496,185 @@ def create_app():
     @app.route('/admin/scores/publish', methods=['POST'])
     @admin_login_required
     def publish_scores():
-        # Get data from the publish form:
         assessment_id = request.form.get('assessment_id')
-        form_key = request.form.get('form_key')
-        round_field_id = request.form.get('round')  # New: selected round's field ID
-        table_html = request.form.get('table_html')
+        form_key      = request.form.get('form_key')
+        report_type   = request.form.get('report_type', 'grant')
+        round_field_id= request.form.get('round')          # only for grant
+        table_html    = request.form.get('table_html')
 
-        if not all([assessment_id, form_key, round_field_id, table_html]):
+        if not all([assessment_id, form_key, table_html]):
             return jsonify({"error": "Missing required fields"}), 400
+        if report_type == 'grant' and not round_field_id:
+            return jsonify({"error": "Round is required for Grant Report"}), 400
 
-        # Get an API token
+        # 1) auth
         token = get_token()
         if isinstance(token, dict) and token.get("error"):
             return jsonify(token), 500
-
         headers = {"Authorization": f"Bearer {token}"}
 
-        # 1. Query the API for the folio ID using the provided form key.
+        # 2) find folio by key
         query = f"""
         {{
         folios(key:"{form_key}") {{
-            nodes {{
-            key
-            id
-            title
-            }}
+            nodes {{ key id title }}
         }}
         }}
         """
-        query_response = requests.post(
-            GRAPHQL_URL,
-            json={"query": query},
-            headers=headers
-        )
-        if query_response.status_code != 200:
-            return jsonify({"error": "Failed to query folio", "details": query_response.text}), query_response.status_code
-        data = query_response.json()
-        nodes = data.get("data", {}).get("folios", {}).get("nodes", [])
+        qres = requests.post(GRAPHQL_URL, json={"query": query}, headers=headers)
+        if qres.status_code != 200:
+            return jsonify({"error":"Failed to query folio", "details": qres.text}), qres.status_code
+        nodes = qres.json().get("data", {}).get("folios", {}).get("nodes", [])
         if not nodes:
-            return jsonify({"error": "No folio found for the provided key"}), 400
+            return jsonify({"error":"No folio found for the provided key"}), 400
         folio_id = nodes[0]["id"]
 
-        # 2. Send the mutation to update the folio with the table HTML.
+        # 3) GRANT REPORT (existing behaviour)
+        if report_type == 'grant':
+            mutation = f"""
+            mutation {{
+            updateFolio(
+                input: {{
+                folioId: "{folio_id}",
+                fieldResponses: [
+                    {{
+                    fieldId: "{round_field_id}",
+                    text: {json.dumps(table_html)}
+                    }}
+                ]
+                }}
+            ) {{
+                data {{ id key title }}
+                errors {{ message }}
+            }}
+            }}
+            """
+            mres = requests.post(GRAPHQL_URL, json={"query": mutation}, headers=headers)
+            if mres.status_code != 200:
+                return jsonify({"error":"Failed to update folio", "details": mres.text}), mres.status_code
+            result = json.dumps(mres.json(), indent=2)
+            return render_template('publish_result.html', result=result)
+
+        # 4) PROCUREMENT REPORT
+        # env field IDs
+        F_PROVIDER = os.environ.get('FOLIO_FIELD_ID_PROC_PROVIDER')
+        F_RANK     = os.environ.get('FOLIO_FIELD_ID_PROC_RANK')
+        F_FINAL    = os.environ.get('FOLIO_FIELD_ID_PROC_FINAL_SCORE')
+        F_REQ      = os.environ.get('FOLIO_FIELD_ID_PROC_FUNDING_REQUESTED')
+        F_GIVEN    = os.environ.get('FOLIO_FIELD_ID_PROC_FUNDING_GRANTED')
+        F_SUCC     = os.environ.get('FOLIO_FIELD_ID_PROC_SUCCESS')
+        A_YES      = os.environ.get('FOLIO_ANSWER_ID_SUCCESS_YES')
+        A_NO       = os.environ.get('FOLIO_ANSWER_ID_SUCCESS_NO')
+        F_HTML     = os.environ.get('FOLIO_FIELD_ID_PROC_TABLE_HTML')
+
+        missing = [k for k,v in {
+            "FOLIO_FIELD_ID_PROC_PROVIDER":F_PROVIDER,
+            "FOLIO_FIELD_ID_PROC_RANK":F_RANK,
+            "FOLIO_FIELD_ID_PROC_FINAL_SCORE":F_FINAL,
+            "FOLIO_FIELD_ID_PROC_FUNDING_REQUESTED":F_REQ,
+            "FOLIO_FIELD_ID_PROC_FUNDING_GRANTED":F_GIVEN,
+            "FOLIO_FIELD_ID_PROC_SUCCESS":F_SUCC,
+            "FOLIO_ANSWER_ID_SUCCESS_YES":A_YES,
+            "FOLIO_ANSWER_ID_SUCCESS_NO":A_NO,
+            "FOLIO_FIELD_ID_PROC_TABLE_HTML":F_HTML
+        }.items() if not v]
+        if missing:
+            return jsonify({"error":"Missing .env mappings", "fields": missing}), 400
+
+        # Recompute Outcome Summary (rank & final score)
+        assessment = Assessment.query.get(assessment_id)
+        if not assessment:
+            return jsonify({"error":"Assessment not found"}), 404
+
+        raw_scores = (
+            db.session.query(Score, Assessor, Application, Criteria)
+            .join(Assessor, Score.assessor_id == Assessor.id)
+            .join(Application, Score.application_id == Application.id)
+            .join(Criteria, Score.criteria_id == Criteria.id)
+            .filter(Assessor.assessment_id == assessment.id)
+            .all()
+        )
+
+        grouped = {}
+        for s, a, app, c in raw_scores:
+            w = (s.score * c.weight) / 100.0  # 0..10
+            g = grouped.setdefault(app.id, {
+                "application": app,
+                "total_weighted": 0.0,
+                "assessors": set(),
+                "count": 0
+            })
+            g["total_weighted"] += w
+            g["count"] += 1
+            g["assessors"].add(a.id)
+
+        grouped_list = []
+        for g in grouped.values():
+            na = len(g["assessors"])
+            final_score = (g["total_weighted"]/na)*10 if na else 0.0  # 0..100
+            g["final_score"] = final_score
+            grouped_list.append(g)
+
+        grouped_list.sort(key=lambda x: x["final_score"], reverse=True)
+        for idx, g in enumerate(grouped_list, start=1):
+            g["rank"] = idx
+
+        # Build fieldResponses with rowIndex
+        def resp_text(field_id, text, rowIndex=None):
+            return f'{{fieldId:"{field_id}", text:{json.dumps(text)}' + (f', rowIndex:{rowIndex}' if rowIndex is not None else '') + '}'
+
+        def resp_numeric(field_id, num, rowIndex=None):
+            # GraphQL numeric literal, not quoted
+            return f'{{fieldId:"{field_id}", numeric:{num}' + (f', rowIndex:{rowIndex}' if rowIndex is not None else '') + '}'
+
+        def resp_select(field_id, answer_id, rowIndex=None):
+            return (
+                '{fieldId:"' + field_id + '", fieldAnswerResponses:[{fieldAnswerId:"' + answer_id + '"}]' +
+                (f', rowIndex:{rowIndex}' if rowIndex is not None else '') + '}'
+            )
+
+        frags = []
+        for i, g in enumerate(grouped_list):
+            app = g["application"]
+            provider = _clean_provider_name(app.code)
+            final_txt = f'{round(g["final_score"], 2)}/100'
+
+            frags.append(resp_text(F_PROVIDER, provider, rowIndex=i))
+            frags.append(resp_numeric(F_RANK, g["rank"], rowIndex=i))
+            frags.append(resp_text(F_FINAL, final_txt, rowIndex=i))
+
+            if app.funding_requested is not None:
+                frags.append(resp_numeric(F_REQ, float(app.funding_requested), rowIndex=i))
+            if app.funding_given is not None:
+                frags.append(resp_numeric(F_GIVEN, float(app.funding_given), rowIndex=i))
+            if app.successful is not None:
+                frags.append(resp_select(F_SUCC, A_YES if app.successful else A_NO, rowIndex=i))
+
+        # Also push the whole Outcome HTML to a field
+        frags.append(resp_text(F_HTML, table_html))
+
+        field_responses_str = "[\n  " + ",\n  ".join(frags) + "\n]"
+
         mutation = f"""
         mutation {{
         updateFolio(
             input: {{
             folioId: "{folio_id}",
-            fieldResponses: [
-                {{
-                fieldId: "{round_field_id}", 
-                text: {json.dumps(table_html)}
-                }}
-            ]
+            fieldResponses: {field_responses_str}
             }}
         ) {{
-            data {{
-            id
-            key
-            title
-            }}
+            data {{ id key title }}
+            errors {{ message }}
         }}
         }}
         """
-        mutation_response = requests.post(
-            GRAPHQL_URL,
-            json={"query": mutation},
-            headers=headers
-        )
-        if mutation_response.status_code != 200:
-            return jsonify({"error": "Failed to update folio", "details": mutation_response.text}), mutation_response.status_code
+        mres = requests.post(GRAPHQL_URL, json={"query": mutation}, headers=headers)
+        if mres.status_code != 200:
+            return jsonify({"error":"Failed to update folio", "details": mres.text}), mres.status_code
 
-        # Pretty-print the JSON response.
-        result = json.dumps(mutation_response.json(), indent=2)
+        result = json.dumps(mres.json(), indent=2)
         return render_template('publish_result.html', result=result)
+
     
     @app.route('/admin/assessors', methods=['GET', 'POST'])
     @admin_login_required
