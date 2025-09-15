@@ -186,7 +186,7 @@
                             {{ ci.criteria.description }}
                             <small class="text-muted">({{ ci.criteria.weight }}%)</small>
                           </td>
-                          <td>{{ci.score}}</td>
+                          <td>{{ci.score}} / 10</td>
                          
                           {# convert 0–10 to 0–100 by ×10 #}
                           <td class="text-end">{{ (ci.weighted * 10) | round(2) }} / {{ ci.criteria.weight }}</td>
