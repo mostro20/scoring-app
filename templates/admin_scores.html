@@ -98,84 +98,85 @@
         </h2>
         <form method="POST" action="{{ url_for('admin_scores') }}">
           <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
+          <div id="folio-table">
+            <table class="table table-striped mb-5">
+              <thead>
+                <tr>
+                  <th>No.</th>
+                  <th>Provider name</th>
+                  <th>ABN</th>
+                  <th>Funding requested</th>
+                  <th>Rank</th>
+                  <th>Final score</th>
+                  <th>Funding granted</th>
+                  <th>Successful?</th>
+                </tr>
+              </thead>
+              <tbody class="table-group-divider">
+                {% for group in grouped_scores %}
+                <tr>
+                  <td>{{ group.application.code | clean_code_no }}</td>
+                  <td>{{ group.application.code | clean_code }}</td>
+                  <td></td>
 
-          <table class="table table-striped mb-5">
-            <thead>
-              <tr>
-                <th>No.</th>
-                <th>Provider name</th>
-                <th>ABN</th>
-                <th>Funding requested</th>
-                <th>Rank</th>
-                <th>Final score</th>
-                <th>Funding granted</th>
-                <th>Successful?</th>
-              </tr>
-            </thead>
-            <tbody class="table-group-divider">
-              {% for group in grouped_scores %}
-              <tr>
-                <td>{{ group.application.code | clean_code_no }}</td>
-                <td>{{ group.application.code | clean_code }}</td>
-                <td></td>
+                  <!-- funding_requested input -->
+                  <td>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="funding_requested-{{ group.application.id }}"
+                      class="form-control form-control-sm"
+                      value="{{ group.application.funding_requested or '' }}"
+                    >
+                  </td>
 
-                <!-- funding_requested input -->
-                <td>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="funding_requested-{{ group.application.id }}"
-                    class="form-control form-control-sm"
-                    value="{{ group.application.funding_requested or '' }}"
-                  >
-                </td>
+                  <td>{{ group.rank }}</td>
 
-                <td>{{ group.rank }}</td>
+                  <td>{{ group.final_score | round(2) }}</td>
 
-                <td>{{ group.final_score | round(2) }}</td>
+                  <!-- funding_given input -->
+                  <td>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="funding_given-{{ group.application.id }}"
+                      class="form-control form-control-sm"
+                      value="{{ group.application.funding_given or '' }}"
+                    >
+                  </td>
 
-                <!-- funding_given input -->
-                <td>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="funding_given-{{ group.application.id }}"
-                    class="form-control form-control-sm"
-                    value="{{ group.application.funding_given or '' }}"
-                  >
-                </td>
-
-                <!-- successful checkbox -->
-                <td class="text-center">
-                  <input
-                    type="checkbox"
-                    name="successful-{{ group.application.id }}"
-                    {% if group.application.successful %}checked{% endif %}
-                  >
-                </td>
-              </tr>
-              {% endfor %}
-              <tr class="table-secondary">
-                <td colspan="3"><strong>Running Totals:</strong></td>
-                <!-- total requested -->
-                <td><strong id="totalRequested">0.00</strong></td>
-                <td></td>
-                <td></td>
-                <!-- total given -->
-                <td><strong id="totalGiven">0.00</strong></td>
-                <td>
-                  <button
-                    type="submit"
-                    value="1"
-                    name="publish"
-                    class="btn btn-success float-end"
-                  >
-                    Publish outcomes
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  <!-- successful checkbox -->
+                  <td class="text-center">
+                    <input
+                      type="checkbox"
+                      name="successful-{{ group.application.id }}"
+                      {% if group.application.successful %}checked{% endif %}
+                    >
+                  </td>
+                </tr>
+                {% endfor %}
+                <tr class="table-secondary">
+                  <td colspan="3"><strong>Running Totals:</strong></td>
+                  <!-- total requested -->
+                  <td><strong id="totalRequested">0.00</strong></td>
+                  <td></td>
+                  <td></td>
+                  <!-- total given -->
+                  <td><strong id="totalGiven">0.00</strong></td>
+                  <td>
+                    <button
+                      type="submit"
+                      value="1"
+                      name="publish"
+                      class="btn btn-success float-end"
+                    >
+                      Publish outcomes
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </form>
 
         
@@ -238,19 +239,29 @@
         
         <h2 class="hide-from-print-summary">Publish Scores</h2>
         <p class="hide-from-print-summary">This will publish the results of the assessment directly to Folio.</p>
-        <!-- Publish form -->
+
         <form method="POST" action="{{ url_for('publish_scores') }}" id="publish-form" class="form-floating">
+          <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
+
+          <!-- Report type -->
           <div class="mb-3 hide-from-print-summary">
-            <!-- Pass along the assessment id -->
-            <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
-            <!-- Let admin enter the Folio key -->
+            <label for="report_type" class="form-label">Report type:</label>
+            <select name="report_type" id="report_type" class="form-select" required>
+              <option value="grant" selected>Grant Report</option>
+              <option value="procurement">Procurement Report</option>
+            </select>
+          </div>
+
+          <!-- Folio Key -->
+          <div class="mb-3 hide-from-print-summary">
             <label for="form_key" class="form-label">Enter Folio Key:</label>
             <input type="text" class="form-control" name="form_key" id="form_key" value="GRPR-XX" required>
           </div>
-          <div class="mb-3 hide-from-print-summary">
-            <!-- Dropdown for selecting the round -->
+
+          <!-- Round (Grant flow only) -->
+          <div class="mb-3 hide-from-print-summary" id="roundWrap">
             <label for="round" class="form-label">Select Round:</label>
-            <select name="round" id="round" class="form-select" required>
+            <select name="round" id="round" class="form-select">
               <option value="MDBGaWVsZC0yODQzNA">Round 1</option>
               <option value="MDBGaWVsZC0yODQ2OQ">Round 2</option>
               <option value="MDBGaWVsZC0yODQ3MQ">Round 3</option>
@@ -258,8 +269,10 @@
               <option value="MDBGaWVsZC0yODQ3NQ">Round 5</option>
             </select>
           </div>
-          <!-- Hidden field for the combined HTML -->
+
+          <!-- Hidden field for the combined HTML (used for both flows) -->
           <input type="hidden" name="table_html" id="table_html">
+
           <div class="mb-3 hide-from-print-summary">
             <input type="submit" value="Publish Scores" class="btn btn-primary">
           </div>
@@ -335,6 +348,102 @@
 
         // Initialize once on page load
         document.addEventListener('DOMContentLoaded', updateTotals);
+
+        // Toggle Round select visibility by report type
+        document.addEventListener('DOMContentLoaded', function(){
+          const sel = document.getElementById('report_type');
+          const roundWrap = document.getElementById('roundWrap');
+          function toggle() {
+            roundWrap.style.display = (sel.value === 'grant') ? '' : 'none';
+            // If procurement, remove 'required' on round to avoid validation hiccups
+            document.getElementById('round').toggleAttribute('required', sel.value === 'grant');
+          }
+          sel.addEventListener('change', toggle);
+          toggle();
+        });
+
+        // Format helper (optional). Adjust toFixed or add currency formatting if you like.
+        function formatNumberLike(n) {
+          if (n === '' || n === null || n === undefined) return '';
+          const num = Number(n);
+          return Number.isFinite(num) ? num.toString() : String(n);
+        }
+
+        function sanitizeOutcomeTable() {
+          // Grab the Outcome table inside #folio-table
+          const table = document.querySelector('#folio-table table');
+          if (!table) return '';
+
+          // Work on a deep clone so we don't touch the live DOM
+          const clone = table.cloneNode(true);
+
+          // Remove anything explicitly hidden for print/summary
+          clone.querySelectorAll('.hide-from-print-summary').forEach(el => el.remove());
+
+          // Remove any buttons inside the table (e.g., copy/publish/etc.)
+          clone.querySelectorAll('button').forEach(el => el.remove());
+
+          // Replace inputs, textareas, selects with their displayed values
+          // INPUTS
+          clone.querySelectorAll('input').forEach(inp => {
+            const td = inp.closest('td') || inp.parentElement;
+            if (!td) { inp.remove(); return; }
+
+            let text = '';
+            const type = (inp.getAttribute('type') || 'text').toLowerCase();
+
+            if (type === 'checkbox' || type === 'radio') {
+              text = inp.checked ? 'Yes' : 'No';
+            } else if (type === 'number') {
+              text = formatNumberLike(inp.value);
+            } else {
+              text = inp.value || '';
+            }
+
+            // Replace the input with a text node (or span)
+            const span = document.createElement('span');
+            span.textContent = text;
+            inp.replaceWith(span);
+          });
+
+          // TEXTAREAS
+          clone.querySelectorAll('textarea').forEach(ta => {
+            const td = ta.closest('td') || ta.parentElement;
+            if (!td) { ta.remove(); return; }
+            const span = document.createElement('span');
+            // Preserve line breaks as <br> for readability
+            span.innerHTML = (ta.value || '').replace(/\n/g, '<br>');
+            ta.replaceWith(span);
+          });
+
+          // SELECTS
+          clone.querySelectorAll('select').forEach(sel => {
+            const td = sel.closest('td') || sel.parentElement;
+            if (!td) { sel.remove(); return; }
+            const span = document.createElement('span');
+            const opt = sel.selectedOptions && sel.selectedOptions[0];
+            span.textContent = opt ? (opt.textContent || opt.value) : (sel.value || '');
+            sel.replaceWith(span);
+          });
+
+          // Extra safety: strip any <script> tags if present
+          clone.querySelectorAll('script').forEach(s => s.remove());
+
+          return clone.outerHTML;
+        }
+
+        // Hook into your existing publish form
+        document.addEventListener('DOMContentLoaded', function(){
+          const form = document.getElementById('publish-form');
+          const hidden = document.getElementById('table_html');
+          if (!form || !hidden) return;
+
+          form.addEventListener('submit', function(){
+            const cleaned = sanitizeOutcomeTable();
+            hidden.value = cleaned; // this is what goes into {json.dumps(table_html)}
+          });
+        });
+
       </script>
 </body>
 </html>

@@ -28,9 +28,9 @@
           </div>
       </nav>
     <div class="col">
-      <h1>Important assessment details</h1>
+      <h1 class="hide-from-print-summary">Important assessment details</h1>
 
-      <p><a href="/admin/scores/summary-history">View score history assessment screen</a></p>
+      <p class="hide-from-print-summary"><a href="/admin/scores/summary-history">View score history assessment screen</a></p>
 
       <form method="POST" action="{{ url_for('admin_scores_summary') }}" class="mb-4">
         <div class="mb-3 hide-from-print-summary">
@@ -53,7 +53,7 @@
 
         <p class="hide-from-print-summary"><i class="bi bi-arrow-down"></i> <a href="#appbreak">Skip to application breakdown by assessor</a></p>
 
-        <hr>
+        <hr class="hide-from-print-summary">
 
         <h2><i class="bi bi-clipboard-data-fill"></i> Application Breakdown</h2>
         <div class="accordion" id="appBreakdownAccordion">
@@ -71,7 +71,7 @@
                 <i class="bi bi-clipboard2-check me-2"></i>
                 {{ ab.application.code }}
                 &nbsp;&nbsp;
-                <span class="badge bg-secondary">
+                <span class="badge bg-secondary hide-from-print-summary">
                   Avg: {{ (ab.avg_weighted * 10) | round(2) }} / 100
                 </span>
               </button>
@@ -127,9 +127,9 @@
 
         <a name="appbreak"></a><h2 class="hide-from-print-summary"><i class="bi bi-window-plus"></i> Panel-Member Breakdown</h2>
         {% for pb in panel_breakdown %}
-            <h4 class="h5 hide-from-print-summary">
+            <h2 class="h5 report-page-break">
               <i class="bi bi-person-circle"></i> {{ pb.assessor.name }}
-              <span class="small text-muted">
+              <span class="small text-muted hide-from-print-summary">
                 [ {{ 'scoring finalised' if pb.finalised else 'scoring in progress' }} ]
               </span>
 
@@ -141,36 +141,90 @@
                 onsubmit="return confirm('Reopen scoring for {{ pb.assessor.name }}? Previous scores will be archived.');"
               >
                 <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
-                <button class="btn btn-sm btn-outline-warning">Reopen scoring</button>
+                <button class="btn btn-sm btn-outline-warning hide-from-print-summary">Reopen scoring</button>
               </form>
               {% endif %}
-            </h4>
-            <table class="table table-sm table-striped mb-4 hide-from-print-summary">
-            <thead>
-                <tr>
-                <th>Application</th>
-                <th>Criteria</th>
-                <th>Description</th>
-                <th class="text-end">Weighted Score</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in pb.scores %}
-                <tr>
-                <td>
-                  {{ item.application.code }}
-                </td>
-                <td>
-                  {{ item.criteria.description }}
-                </td>
-                <td>
-                  {{ item.comment or '' }}
-                </td>
-                <td class="text-end">{{ item.weighted | round(2) * 10 }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            </table>
+            </h2>
+          <!-- Assessor-specific accordion -->
+          <div class="accordion mb-4" id="assessorAccordion-{{ pb.assessor.id }}">
+            {% for blk in pb.by_application %}
+              {% set app = blk.application %}
+              <div class="accordion-item">
+                <h3 class="accordion-header" id="assessor-{{ pb.assessor.id }}-heading-{{ app.id }}">
+                  <button
+                    class="accordion-button collapsed"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#assessor-{{ pb.assessor.id }}-collapse-{{ app.id }}"
+                    aria-expanded="false"
+                    aria-controls="assessor-{{ pb.assessor.id }}-collapse-{{ app.id }}"
+                  >
+                    <i class="bi bi-clipboard2 me-2"></i>
+                    {{ app.code }}
+                  </button>
+                </h3>
+                <div
+                  id="assessor-{{ pb.assessor.id }}-collapse-{{ app.id }}"
+                  class="accordion-collapse collapse"
+                  aria-labelledby="assessor-{{ pb.assessor.id }}-heading-{{ app.id }}"
+                  data-bs-parent="#assessorAccordion-{{ pb.assessor.id }}"
+                >
+                  <div class="accordion-body p-0">
+                    <!-- Weighted scores by criteria -->
+                    <table class="table table-sm table-striped mb-0">
+                      <thead>
+                        <tr>
+                          <th>Criteria</th>
+                          <th>Raw Score</th>
+                          <th class="text-end">Weighted Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for ci in blk.criteria_items %}
+                        <tr>
+                          <td>
+                            {{ ci.criteria.description }}
+                            <small class="text-muted">({{ ci.criteria.weight }}%)</small>
+                          </td>
+                          <td>{{ci.score}}</td>
+                         
+                          {# convert 0–10 to 0–100 by ×10 #}
+                          <td class="text-end">{{ (ci.weighted * 10) | round(2) }} / {{ ci.criteria.weight }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                          {# total is sum of each weighted (0–10); convert to 0–100 by ×10 #}
+                          {% set total_w = blk.criteria_items | sum(attribute='weighted') %}
+                          <td colspan="2"><strong>Total score:</strong> </td>
+                          <td class="text-end"><strong>{{ (total_w * 10) | round(2) }} / 100</strong></td>
+                       </tr>
+                      </tbody>
+                    </table>
+
+
+
+                    <!-- Comments section -->
+                    <div class="p-3">
+                      <h4 class="mb-2 h5">Comments</h4>
+                      {% set has_comments = false %}
+                      {% for ci in blk.criteria_items %}
+                        {% if ci.comment %}
+                          {% set has_comments = true %}
+                          <p class="mb-2 comments-assessor">
+                            <strong>{{ ci.criteria.description }}</strong><br>
+                            <span class="text-muted">{{ ci.comment }}</span>
+                          </p>
+                        {% endif %}
+                      {% endfor %}
+                      {% if not has_comments %}
+                        <div class="text-muted">&nbsp;</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
         {% endfor %}
 
         <p>&nbsp;</p>
