@@ -34,13 +34,38 @@
       <div class="row">
         <div class="col-md-12">
           <div class="float-end hide-from-print-summary mb-2">
-                <!-- PDF toggle button -->
-                <button
-                  type="button"
-                  id="togglePdfBtn"
-                  class="btn btn-outline-secondary btn-sm me-2"
-                >Hide PDF</button>
-          </div>
+
+                <!-- PDF view switch -->
+                <div class="btn-group btn-group-sm" role="group" aria-label="PDF view">
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    id="btnAssessment"
+                    data-mode="assessment"
+                    {% if not assessment.pdf_filename %}disabled{% endif %}
+                  >
+                    Assessment sheet
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    id="btnGuide"
+                    data-mode="guide"
+                    {% if not assessment.pdf_score_filename %}disabled{% endif %}
+                  >
+                    Scoring guide
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    id="btnHide"
+                    data-mode="hide"
+                  >
+                    Hide both
+                  </button>
+                </div>
+
+              </div>
         </div>
         <div id="scoringCol" class="col-md-5">
           <form method="POST" action="{{ url_for('score', token=token) }}">
@@ -116,13 +141,16 @@
             </div>
           </form>
         </div>
-        <div id="pdfCol" class="col-md-7 hide-from-print-summary">
-          {% if assessment.pdf_filename %}
-            <iframe src="{{ url_for('uploaded_file', filename=assessment.pdf_filename) }}"
-                    width="100%" height="1200px" class="border"></iframe>
-          {% else %}
-            <p>No PDF available for this assessment.</p>
-          {% endif %}
+        <div
+          id="pdfCol"
+          class="col-md-7 hide-from-print-summary"
+          data-assessment-url="{{ url_for('uploaded_file', filename=assessment.pdf_filename) if assessment.pdf_filename else '' }}"
+          data-guide-url="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) if assessment.pdf_score_filename else '' }}"
+        >
+          <iframe id="pdfFrame" width="100%" height="1200px" class="border" title="Reference PDF"></iframe>
+          <div id="pdfMissing" class="alert alert-warning m-2 d-none">
+            The selected document isn’t available for this assessment.
+          </div>
         </div>
       </div>
     </div>
@@ -233,17 +261,69 @@
           document.addEventListener('DOMContentLoaded', function(){
             const scoringCol = document.getElementById('scoringCol');
             const pdfCol     = document.getElementById('pdfCol');
-            const toggleBtn  = document.getElementById('togglePdfBtn');
+            const pdfFrame   = document.getElementById('pdfFrame');
+            const pdfMissing = document.getElementById('pdfMissing');
 
-            toggleBtn.addEventListener('click', () => {
-              const hidden = pdfCol.classList.toggle('d-none'); 
-              // swap column widths
+            const urls = {
+              assessment: pdfCol.dataset.assessmentUrl || '',
+              guide:      pdfCol.dataset.guideUrl || ''
+            };
+
+            // Buttons
+            const btnAssessment = document.getElementById('btnAssessment');
+            const btnGuide      = document.getElementById('btnGuide');
+            const btnHide       = document.getElementById('btnHide');
+            const btns = [btnAssessment, btnGuide, btnHide];
+
+            function setActive(mode) {
+              btns.forEach(b => {
+                if (!b) return;
+                const isActive = b.dataset.mode === mode;
+                b.classList.toggle('btn-secondary', isActive);
+                b.classList.toggle('btn-outline-secondary', !isActive);
+                b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+              });
+            }
+
+            function setLayout(hidden) {
+              pdfCol.classList.toggle('d-none', hidden);
               scoringCol.classList.toggle('col-md-5', !hidden);
               scoringCol.classList.toggle('col-md-12', hidden);
+            }
 
-              // update button text
-              toggleBtn.textContent = hidden ? 'Show PDF' : 'Hide PDF';
-            });
+            function showMissing() {
+              pdfFrame.removeAttribute('src');
+              pdfMissing.classList.remove('d-none');
+              setLayout(false); // still show right column, but with message
+            }
+
+            function setMode(mode) {
+              setActive(mode);
+              pdfMissing.classList.add('d-none');
+
+              if (mode === 'hide') {
+                pdfFrame.removeAttribute('src');
+                setLayout(true);
+                return;
+              }
+
+              const src = urls[mode] || '';
+              if (!src) {
+                showMissing();
+                return;
+              }
+
+              // Show iframe with the chosen doc
+              pdfFrame.src = src;
+              setLayout(false);
+            }
+
+            // Wire buttons
+            btns.forEach(b => b && b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+            // Initial mode: prefer Assessment, then Guide, else Hide
+            const initialMode = urls.assessment ? 'assessment' : (urls.guide ? 'guide' : 'hide');
+            setMode(initialMode);
           });
 
           document.addEventListener('DOMContentLoaded', () => {
