@@ -28,7 +28,7 @@
         <li><a href="{{ assessment.sharepoint_dir }}" target="_blank">Access the panel folder</a></li>
       {% endif %}
       {% if assessment.pdf_score_filename %}
-        <li><a href="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) }}" target="_blank">Download the scoring guide</a></li>
+        <li><a href="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) }}" target="_blank">Download the evaluation guide</a></li>
       {% endif %}
       </ul>
       <div class="row">
@@ -53,7 +53,7 @@
                     data-mode="guide"
                     {% if not assessment.pdf_score_filename %}disabled{% endif %}
                   >
-                    Scoring guide
+                    Evaluation guide
                   </button>
                   <button
                     type="button"
