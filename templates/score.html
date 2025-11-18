@@ -154,6 +154,17 @@
         </div>
       </div>
     </div>
+    <div class="container">
+      <div class="alert alert-info py-1 px-2 d-flex align-items-center justify-content-between hide-from-print-summary">
+        <div>
+            <strong>Session time remaining:</strong>
+            <span id="session-timer">24:00:00</span>
+        </div>
+        <small class="text-muted ms-2">
+          After this time changes will no longer auto-save and you will need to log back in.
+        </small>
+      </div>
+    </div>
 
     {% with messages = get_flashed_messages() %}
       {% if messages %}
@@ -174,173 +185,292 @@
             </div>
           </div>
         </div>
-        
-        
       {% endif %}
     {% endwith %}
+
+    <!-- Session expired modal -->
+    <div class="modal fade" id="sessionExpiredModal" tabindex="-1"
+        aria-labelledby="sessionExpiredModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="sessionExpiredModalLabel">Session expired</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            Your scoring page has been open for more than 24 hours. For security reasons,
+            your login session may have expired.
+            <ul>
+              <li>Any scores you enter from now on may not be saved.</li>
+              <li>Please copy any notes you need, then refresh this page using your original access link.</li>
+            </ul>
+          </div>
+          <div class="modal-footer">
+            <a href="" class="btn btn-primary" id="sessionRefreshLink">Refresh now</a>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+              I'll refresh later
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script>
-          document.addEventListener("DOMContentLoaded", function(){
-              var submissionModal = new bootstrap.Modal(document.getElementById('submissionModal'));
-              submissionModal.show();
-          });
-          document.getElementById('finaliseBtn')?.addEventListener('click', function(){
-            document.querySelectorAll('.accordion-collapse').forEach(panel=>{
-              new bootstrap.Collapse(panel, { toggle: false }).show();
-            });
-          });
-          // build the autosave URL once
-          const autosaveUrl = "{{ url_for('autosave_score', token=token) }}";
+      // Show "submission received" modal if it exists
+      document.addEventListener("DOMContentLoaded", function(){
+        var submissionModalEl = document.getElementById('submissionModal');
+        if (submissionModalEl && window.bootstrap) {
+          var submissionModal = new bootstrap.Modal(submissionModalEl);
+          submissionModal.show();
+        }
+      });
 
-          // helper to POST JSON
-          async function autosave(payload){
-            try {
-              let res = await fetch(autosaveUrl, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-              });
-              if (!res.ok) {
-                let err = await res.json();
-                console.error('Autosave error:', err);
-              }
-            } catch(e) {
-              console.error('Autosave failed:', e);
+      document.getElementById('finaliseBtn')?.addEventListener('click', function(){
+        document.querySelectorAll('.accordion-collapse').forEach(panel=>{
+          new bootstrap.Collapse(panel, { toggle: false }).show();
+        });
+      });
+
+      // build the autosave URL once
+      const autosaveUrl = "{{ url_for('autosave_score', token=token) }}";
+      // global flag to stop autosave after session expiry
+      window.sessionExpired = false;
+
+      // helper to POST JSON
+      async function autosave(payload){
+        if (window.sessionExpired) {
+          console.warn('Skipping autosave because session is marked as expired.');
+          return;
+        }
+        try {
+          let res = await fetch(autosaveUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+            let err = await res.json();
+            console.error('Autosave error:', err);
+          }
+        } catch(e) {
+          console.error('Autosave failed:', e);
+        }
+      }
+
+      // now Jinja just dumps a JSON literal
+      const critWeights    = {{ crit_weights  | tojson }};
+      const initialScores  = {{ weighted_scores | tojson }};
+
+      // set initial display
+      document.addEventListener('DOMContentLoaded', () => {
+        for (const [appId, ws] of Object.entries(initialScores)) {
+          const span = document.getElementById(`weighted-${appId}`);
+          if (span && typeof ws === 'number') span.textContent = ws.toFixed(2);
+        }
+      });
+
+      function recalcApp(appId) {
+        let total = 0;
+        document
+          .querySelectorAll(`input[name^="score-${appId}-"]`)
+          .forEach(input => {
+            const v = parseInt(input.value, 10);
+            if (!isNaN(v)) {
+              total += (v * critWeights[input.name.split('-')[2]]) / 10;
             }
+          });
+        const span = document.getElementById(`weighted-${appId}`);
+        if (span) span.textContent = total.toFixed(2);
+      }
+
+      // attach blur listeners to every score input and every comment textarea
+      document.querySelectorAll(
+          'input[name^="score-"], textarea[name^="comment-"]'
+        ).forEach(el => {
+        el.addEventListener('blur', function(){
+          // name is "score-<appId>-<critId>" or "comment-<appId>-<critId>"
+          let [type, appId, critId] = this.name.split('-');
+          let scoreField   = document.querySelector(`input[name="score-${appId}-${critId}"]`);
+          let commentField = document.querySelector(`textarea[name="comment-${appId}-${critId}"]`);
+
+          autosave({
+            application_id: parseInt(appId, 10),
+            criteria_id:    parseInt(critId, 10),
+            score:          scoreField   ? scoreField.value   : null,
+            comment:        commentField ? commentField.value : null
+          });
+
+          recalcApp(appId);
+        });
+      });
+
+      document.addEventListener('DOMContentLoaded', function(){
+        const scoringCol = document.getElementById('scoringCol');
+        const pdfCol     = document.getElementById('pdfCol');
+        const pdfFrame   = document.getElementById('pdfFrame');
+        const pdfMissing = document.getElementById('pdfMissing');
+
+        const urls = {
+          assessment: pdfCol.dataset.assessmentUrl || '',
+          guide:      pdfCol.dataset.guideUrl || ''
+        };
+
+        // Buttons
+        const btnAssessment = document.getElementById('btnAssessment');
+        const btnGuide      = document.getElementById('btnGuide');
+        const btnHide       = document.getElementById('btnHide');
+        const btns = [btnAssessment, btnGuide, btnHide];
+
+        function setActive(mode) {
+          btns.forEach(b => {
+            if (!b) return;
+            const isActive = b.dataset.mode === mode;
+            b.classList.toggle('btn-secondary', isActive);
+            b.classList.toggle('btn-outline-secondary', !isActive);
+            b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+          });
+        }
+
+        function setLayout(hidden) {
+          pdfCol.classList.toggle('d-none', hidden);
+          scoringCol.classList.toggle('col-md-5', !hidden);
+          scoringCol.classList.toggle('col-md-12', hidden);
+        }
+
+        function showMissing() {
+          pdfFrame.removeAttribute('src');
+          pdfMissing.classList.remove('d-none');
+          setLayout(false); // still show right column, but with message
+        }
+
+        function setMode(mode) {
+          setActive(mode);
+          pdfMissing.classList.add('d-none');
+
+          if (mode === 'hide') {
+            pdfFrame.removeAttribute('src');
+            setLayout(true);
+            return;
           }
 
-          // now Jinja just dumps a JSON literal
-          const critWeights    = {{ crit_weights  | tojson }};
-          const initialScores  = {{ weighted_scores | tojson }};
-
-          // set initial display
-          document.addEventListener('DOMContentLoaded', () => {
-            for (const [appId, ws] of Object.entries(initialScores)) {
-              const span = document.getElementById(`weighted-${appId}`);
-              if (span) span.textContent = ws.toFixed(2);
-            }
-          });
-
-          function recalcApp(appId) {
-            let total = 0;
-            document
-              .querySelectorAll(`input[name^="score-${appId}-"]`)
-              .forEach(input => {
-                const v = parseInt(input.value, 10);
-                if (!isNaN(v)) {
-                  total += (v * critWeights[input.name.split('-')[2]]) / 10;
-                }
-              });
-            const span = document.getElementById(`weighted-${appId}`);
-            if (span) span.textContent = total.toFixed(2);
+          const src = urls[mode] || '';
+          if (!src) {
+            showMissing();
+            return;
           }
 
-              // attach blur listeners to every score input and every comment textarea
-            document.querySelectorAll(
-                'input[name^="score-"], textarea[name^="comment-"]'
-              ).forEach(el => {
-              el.addEventListener('blur', function(){
-              // name is "score-<appId>-<critId>" or "comment-<appId>-<critId>"
-                let [type, appId, critId] = this.name.split('-');
-                let scoreField   = document.querySelector(`input[name="score-${appId}-${critId}"]`);
-                let commentField = document.querySelector(`textarea[name="comment-${appId}-${critId}"]`);
+          // Show iframe with the chosen doc
+          pdfFrame.src = src;
+          setLayout(false);
+        }
 
-              autosave({
-                application_id: parseInt(appId, 10),
-                criteria_id:    parseInt(critId, 10),
-                score:          scoreField   ? scoreField.value   : null,
-                comment:        commentField ? commentField.value : null
-              });
+        // Wire buttons
+        btns.forEach(b => b && b.addEventListener('click', () => setMode(b.dataset.mode)));
 
-              recalcApp(appId);
+        // Initial mode: prefer Assessment, then Guide, else Hide
+        const initialMode = urls.assessment ? 'assessment' : (urls.guide ? 'guide' : 'hide');
+        setMode(initialMode);
+      });
 
-            });
+      document.addEventListener('DOMContentLoaded', () => {
+        // auto-resize remarks textareas
+        document.querySelectorAll('.auto-resize-textarea').forEach(textarea => {
+          textarea.style.height = textarea.scrollHeight + 'px';
+          textarea.style.overflowY = 'hidden';
+
+          textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
           });
+        });
+      });
 
-          document.addEventListener('DOMContentLoaded', function(){
-            const scoringCol = document.getElementById('scoringCol');
-            const pdfCol     = document.getElementById('pdfCol');
-            const pdfFrame   = document.getElementById('pdfFrame');
-            const pdfMissing = document.getElementById('pdfMissing');
+      // -------------------------
+      // Session countdown (24 hrs)
+      // Uses localStorage so refreshes don't reset it
+      // -------------------------
+      document.addEventListener('DOMContentLoaded', () => {
+        const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+        const timerEl = document.getElementById('session-timer');
+        if (!timerEl) return;
 
-            const urls = {
-              assessment: pdfCol.dataset.assessmentUrl || '',
-              guide:      pdfCol.dataset.guideUrl || ''
-            };
+        const token = "{{ token }}";   // unique per scoring page
+        const LS_KEY = `scoringTimer_${token}`;
 
-            // Buttons
-            const btnAssessment = document.getElementById('btnAssessment');
-            const btnGuide      = document.getElementById('btnGuide');
-            const btnHide       = document.getElementById('btnHide');
-            const btns = [btnAssessment, btnGuide, btnHide];
+        const refreshLink = document.getElementById('sessionRefreshLink');
+        if (refreshLink) {
+          refreshLink.href = window.location.href;
+        }
 
-            function setActive(mode) {
-              btns.forEach(b => {
-                if (!b) return;
-                const isActive = b.dataset.mode === mode;
-                b.classList.toggle('btn-secondary', isActive);
-                b.classList.toggle('btn-outline-secondary', !isActive);
-                b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-              });
-            }
+        const expiredModalEl = document.getElementById('sessionExpiredModal');
+        let expiredModal = null;
+        if (expiredModalEl && window.bootstrap) {
+          expiredModal = new bootstrap.Modal(expiredModalEl);
+        }
 
-            function setLayout(hidden) {
-              pdfCol.classList.toggle('d-none', hidden);
-              scoringCol.classList.toggle('col-md-5', !hidden);
-              scoringCol.classList.toggle('col-md-12', hidden);
-            }
+        function handleExpired() {
+          if (window.sessionExpired) return;
+          window.sessionExpired = true;
 
-            function showMissing() {
-              pdfFrame.removeAttribute('src');
-              pdfMissing.classList.remove('d-none');
-              setLayout(false); // still show right column, but with message
-            }
-
-            function setMode(mode) {
-              setActive(mode);
-              pdfMissing.classList.add('d-none');
-
-              if (mode === 'hide') {
-                pdfFrame.removeAttribute('src');
-                setLayout(true);
-                return;
-              }
-
-              const src = urls[mode] || '';
-              if (!src) {
-                showMissing();
-                return;
-              }
-
-              // Show iframe with the chosen doc
-              pdfFrame.src = src;
-              setLayout(false);
-            }
-
-            // Wire buttons
-            btns.forEach(b => b && b.addEventListener('click', () => setMode(b.dataset.mode)));
-
-            // Initial mode: prefer Assessment, then Guide, else Hide
-            const initialMode = urls.assessment ? 'assessment' : (urls.guide ? 'guide' : 'hide');
-            setMode(initialMode);
+          // disable UI
+          document.querySelectorAll('input[name^="score-"], textarea[name^="comment-"]').forEach(el => {
+            el.setAttribute('disabled', 'disabled');
           });
+          document.getElementById('finaliseBtn')?.setAttribute('disabled', 'disabled');
 
-          document.addEventListener('DOMContentLoaded', () => {
-            // find all the new textareas
-            document.querySelectorAll('.auto-resize-textarea').forEach(textarea => {
-              // set initial height
-              textarea.style.height = textarea.scrollHeight + 'px';
-              textarea.style.overflowY = 'hidden';
+          // show modal
+          if (expiredModal) expiredModal.show();
+        }
 
-              // on input, reset height then expand to fit content
-              textarea.addEventListener('input', () => {
-                textarea.style.height = 'auto';
-                textarea.style.height = textarea.scrollHeight + 'px';
-              });
-            });
-          });
+        function formatTime(ms) {
+          const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+          const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+          const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+          const s = String(totalSeconds % 60).padStart(2, '0');
+          return `${h}:${m}:${s}`;
+        }
 
-        </script>
+        // --- load or create session info ---
+        let sessionData = null;
+        try {
+          sessionData = JSON.parse(localStorage.getItem(LS_KEY));
+        } catch (_) {}
+
+        const now = Date.now();
+
+        if (!sessionData || !sessionData.expiry || now > sessionData.expiry) {
+          // session missing or already expired → start a fresh 24h window
+          const start = now;
+          const expiry = start + SESSION_DURATION_MS;
+          sessionData = { start, expiry };
+          localStorage.setItem(LS_KEY, JSON.stringify(sessionData));
+        }
+
+        // If user loads after expiry, show expired immediately
+        if (now >= sessionData.expiry) {
+          timerEl.textContent = "00:00:00";
+          handleExpired();
+          return;
+        }
+
+        // --- normal countdown ---
+        const intervalId = setInterval(() => {
+          const remaining = sessionData.expiry - Date.now();
+          if (remaining <= 0) {
+            timerEl.textContent = "00:00:00";
+            clearInterval(intervalId);
+            handleExpired();
+            return;
+          }
+          timerEl.textContent = formatTime(remaining);
+        }, 1000);
+
+        // initial render
+        timerEl.textContent = formatTime(sessionData.expiry - now);
+      });
+    </script>
+
   </body>
 </html>
