@@ -16,12 +16,10 @@
         <small class="text-muted">{{ assessment.name }}</small>
       </h1>
       <p class="hide-from-print-summary">
-        Please score each criteria for every application from 0-10, along with remarks to justify your scoring. 
-        Your scores and comments will automatically save as you progress through your scoring. 
-        You may exit and re-enter the portal using your unique URL and access code to continue scoring at any time. 
-        The PDF preview on the right hand side provides a brief summary of each application only. 
-        You can minimise this view and expand the scoring panel at any time. 
-        Access each application in full by following the link to the panel folder. 
+        Please score each criteria 0-10 for every application, along with comments to justify your scoring. Scores and comments will automatically save as you enter them. Each session will expire after 24 hours but you may exit and re-enter the portal using your unique URL and access code at any time, to continue scoring.  
+      </p>
+      <p class="hide-from-print-summary">
+        Access each application in full by following the “Access the panel folder” link below to SharePoint. The panel folder also contains supporting documentation such as the evaluation plan, weighted criteria guidance, the panel briefing and tender documentation.  
       </p>
       <ul class="hide-from-print-summary">
       {% if assessment.sharepoint_dir %}      
@@ -76,7 +74,10 @@
                 <h2 class="accordion-header" id="heading-{{ app.id }}">
                   <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app.id }}" aria-expanded="false" aria-controls="collapse-{{ app.id }}">
                     <strong>Applicant {{ app.code }}</strong>
-                    &nbsp; Weighted Score: <span id="weighted-{{ app.id }}">{{ weighted_scores[app.id] }}</span>
+                    <span class="small">
+                      &nbsp; Weighted Score: <span id="weighted-{{ app.id }}">{{ weighted_scores[app.id] }}</span><br>
+                      &nbsp; <span class="text-muted" id="progress-{{ app.id }}">0/{{ criteria|length }} scores completed</span>
+                    </span>
                   </button>
                 </h2>
                 <div id="collapse-{{ app.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ app.id }}" data-bs-parent="#appAccordion">
@@ -100,10 +101,10 @@
                           {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
                           >
                         <label for="comment-{{ app.id }}-{{ crit.id }}" class="hide-from-print-summary">
-                          <small><em>Provide remarks for {{ crit.description }}</em></small>
+                          <small><em>Provide comments for {{ crit.description }}</em></small>
                         </label>
                         <textarea
-                          placeholder="Your remarks"
+                          placeholder="Your comments"
                           class="form-control auto-resize-textarea"
                           name="comment-{{ app.id }}-{{ crit.id }}"
                           id="comment-{{ app.id }}-{{ crit.id }}"
@@ -271,18 +272,19 @@
         }
       });
 
-      function recalcApp(appId) {
-        let total = 0;
-        document
-          .querySelectorAll(`input[name^="score-${appId}-"]`)
-          .forEach(input => {
-            const v = parseInt(input.value, 10);
-            if (!isNaN(v)) {
-              total += (v * critWeights[input.name.split('-')[2]]) / 10;
-            }
-          });
-        const span = document.getElementById(`weighted-${appId}`);
-        if (span) span.textContent = total.toFixed(2);
+      function recalcProgress(appId) {
+        const inputs = document.querySelectorAll(`input[name^="score-${appId}-"]`);
+        const total = inputs.length;
+
+        let done = 0;
+        inputs.forEach(input => {
+          // treat blank as not done; treat 0..10 as done
+          const v = input.value;
+          if (v !== '' && v !== null && !isNaN(parseInt(v, 10))) done++;
+        });
+
+        const el = document.getElementById(`progress-${appId}`);
+        if (el) el.textContent = `${done}/${total} scores completed`;
       }
 
       // attach blur listeners to every score input and every comment textarea
@@ -303,6 +305,7 @@
           });
 
           recalcApp(appId);
+          recalcProgress(appId);
         });
       });
 
@@ -384,6 +387,14 @@
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
           });
+        });
+      });
+
+      document.addEventListener('DOMContentLoaded', () => {
+        // initialise progress for each appId we can see in the DOM
+        document.querySelectorAll('input[name^="score-"]').forEach(input => {
+          const [, appId] = input.name.split('-'); // "score-<appId>-<critId>"
+          recalcProgress(appId);
         });
       });
 

@@ -71,8 +71,8 @@
           <label for="applications" class="form-label">
             Application code (one per line)<br>
             <em>
-              <strong>IMPORTANT</strong> include the leading number and colon "1:", "2:" at the start of each application so 
-              numbering can be used in the process. Do this even if there is only one appplication. (e.g. <code>1: First response</code> || <code>2: Next application</code> and so on)
+              <strong>IMPORTANT</strong> include the leading number and colon "1 -", "2 -" at the start of each application so 
+              numbering can be used in the process. Do this even if there is only one appplication. (e.g. <code>1 - First response</code> || <code>2 - Next application</code> and so on)
             </em>
           </label>
           <textarea
@@ -96,7 +96,7 @@
         </div>
 
         <div class="mb-3">
-          <label for="pdf_file" class="form-label">Upload results PDF</label>
+          <label for="pdf_file" class="form-label">Upload Scoring Guidance or other supporting documentation</label>
           <input type="file" id="pdf_file" name="pdf_file" class="form-control" accept="application/pdf">
           {% if selected_assessment and selected_assessment.pdf_filename %}
           <small>Current: <a href="{{ url_for('static', filename='uploads/'+selected_assessment.pdf_filename) }}" target="_blank">
@@ -106,7 +106,7 @@
         </div>
 
         <div class="mb-3">
-          <label for="pdf_file_score" class="form-label">Upload scoring guide PDF</label>
+          <label for="pdf_file_score" class="form-label">Upload Evaluation Plan PDF</label>
           <input type="file" id="pdf_file_score" name="pdf_file_score" class="form-control" accept="application/pdf">
           {% if selected_assessment and selected_assessment.pdf_score_filename %}
           <small>Current: <a href="{{ url_for('static', filename='uploads/'+selected_assessment.pdf_score_filename) }}" target="_blank">
@@ -116,7 +116,7 @@
         </div>
 
         <div class="mb-3">
-          <label for="sharepoint_dir" class="form-label">Additional support material (SharePoint link)</label>
+          <label for="sharepoint_dir" class="form-label">Add Panel Foldder SharePoint link here</label>
           <input
             type="text"
             id="sharepoint_dir"
