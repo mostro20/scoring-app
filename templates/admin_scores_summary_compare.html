@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Administration - Scoring and progress</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/print.css" media="print">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+  </head>
+  <body>
+    <div class="container">
+        <nav class="navbar navbar-expand-lg bg-body-tertiary hide-from-print-summary">
+          <div class="container-fluid">
+            <img src="/static/HNC-logo-lockup-color.svg" alt="Logo" width="250" class="d-inline-block align-text-top">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+              <div class="navbar-nav">
+                <a class="nav-link" aria-current="page" href="/admin">Create/edit assessments</a>
+                <a class="nav-link" href="/admin/assessors">View assessor links</a>
+                <a class="nav-link" href="/admin/scores">Review scores and publish to Folio</a>
+                <a class="nav-link active" href="/admin/scores/summary">Assessment summary</a>
+              </div>
+            </div>
+          </div>
+      </nav>
+    <div class="col">
+      <h1 class="hide-from-print-summary">Assessor comparison table</h1>
+
+<form method="GET" class="row g-2 mb-3">
+  <div class="col-auto">
+    <select class="form-select" name="assessment_id" onchange="this.form.submit()">
+      <option value="">Select assessment…</option>
+      {% for a in assessments %}
+        <option value="{{ a.id }}" {% if selected_assessment and a.id == selected_assessment.id %}selected{% endif %}>
+          {{ a.name }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+
+{% if selected_assessment %}
+
+<style>
+  .compare-wrap {
+    overflow-x: auto;
+    border: 1px solid #ddd;
+    border-radius: .5rem;
+  }
+  table.compare {
+    border-collapse: separate;
+    border-spacing: 0;
+    min-width: 900px;
+    width: max-content; /* allow horizontal growth */
+  }
+  table.compare th, table.compare td {
+    white-space: nowrap;
+    padding: .5rem .75rem;
+    border-bottom: 1px solid #eee;
+    border-right: 1px solid #f2f2f2;
+    vertical-align: middle;
+  }
+  table.compare thead th {
+    position: sticky;
+    top: 0;
+    background: #008480;
+    z-index: 3;
+    border-bottom: 1px solid #ddd;
+    color: white;
+
+  }
+
+  table.compare tbody .scorer-res {
+    color: #072C32;
+  }
+
+  /* Sticky left columns (Application, Overall Score, Overall Rank) */
+  .sticky-col {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 4;
+    border-right: 1px solid #ddd !important;
+  }
+  .sticky-col-2 { left: 260px; position: sticky; background:#fff; z-index:4; border-right: 1px solid #ddd !important; }
+  .sticky-col-3 { left: 360px; position: sticky; background:#fff; z-index:4; border-right: 1px solid #ddd !important; }
+
+  /* Set fixed widths to make sticky offsets reliable */
+  .col-app { width: 260px; min-width: 260px; max-width: 260px; overflow: hidden; }
+  .col-overall-score { width: 100px; min-width: 100px; }
+  .col-overall-rank { width: 90px; min-width: 90px; }
+
+  /* Make group header look grouped */
+  .group-head {
+    text-align: center;
+    font-weight: 600;
+    border-right: 1px solid #ddd !important;
+  }
+</style>
+
+<div class="compare-wrap">
+  <table class="compare table table-sm mb-0">
+    <thead>
+      <tr>
+        <th class="sticky-col col-app group-head" colspan="3">Overall</th>
+        {% for a in assessors_list %}
+          <th class="group-head" colspan="2">{{ a.name if a.name else ('Assessor ' ~ a.id) }}</th>
+        {% endfor %}
+      </tr>
+      <tr>
+        <th class="sticky-col col-app">Assessment name</th>
+        <th class="sticky-col-2 col-overall-score">Score</th>
+        <th class="sticky-col-3 col-overall-rank">Rank</th>
+
+        {% for a in assessors_list %}
+          <th>Score</th>
+          <th>Rank</th>
+        {% endfor %}
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for row in compare_rows %}
+        <tr>
+          <td class="sticky-col col-app">
+            <div><strong>{{ row.application.code }}</strong></div>
+            <div class="text-muted small">{{ row.application.name if row.application.name else '' }}</div>
+          </td>
+
+          <td class="sticky-col-2 col-overall-score">
+            {{ "%.2f"|format(row.overall_score) }}
+          </td>
+          <td class="sticky-col-3 col-overall-rank">
+            {{ row.overall_rank }}
+          </td>
+
+          {% for cell in row.assessors %}
+            <td>
+              {% if cell.score is not none %}
+                {{ "%.2f"|format(cell.score) }}
+                {% if not cell.complete %}
+                  <span class="text-muted small">({{ cell.count }}/{{ cell.total }})</span>
+                {% endif %}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="scorer-res">
+              {% if cell.rank %}
+                {{ cell.rank }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endif %}
+
+        <p>&nbsp;</p>
+
+        <hr>
+        
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
+</html>

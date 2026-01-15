@@ -30,7 +30,11 @@
     <div class="col">
       <h1 class="hide-from-print-summary">Important assessment details</h1>
 
-      <p class="hide-from-print-summary"><a href="/admin/scores/summary-history">View score history assessment screen</a></p>
+      <p class="hide-from-print-summary">
+        <a href="/admin/scores/summary-history">View score history assessment screen</a>
+         |
+        <a href="/admin/scores/summary-compare">View score compare screen</a>
+      </p>
 
       <form method="POST" action="{{ url_for('admin_scores_summary') }}" class="mb-4">
         <div class="mb-3 hide-from-print-summary">
