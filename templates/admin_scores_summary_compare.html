@@ -74,10 +74,6 @@
 
   }
 
-  table.compare tbody .scorer-res {
-    color: #072C32;
-  }
-
   /* Sticky left columns (Application, Overall Score, Overall Rank) */
   .sticky-col {
     position: sticky;
@@ -88,11 +84,20 @@
   }
   .sticky-col-2 { left: 260px; position: sticky; background:#fff; z-index:4; border-right: 1px solid #ddd !important; }
   .sticky-col-3 { left: 360px; position: sticky; background:#fff; z-index:4; border-right: 1px solid #ddd !important; }
+  
+  table.compare tbody .scorer-left {
+    color: #072C32;
+    border-left:1px solid #072C32;
+  }
+  table.compare tbody .scorer-right {
+    color: #072C32;
+    border-right:1px solid #072C32;
+  }
 
   /* Set fixed widths to make sticky offsets reliable */
   .col-app { width: 260px; min-width: 260px; max-width: 260px; overflow: hidden; }
   .col-overall-score { width: 100px; min-width: 100px; }
-  .col-overall-rank { width: 90px; min-width: 90px; }
+  .col-overall-rank { width: 90px; min-width: 90px; border-right:1px solid #072C32;}
 
   /* Make group header look grouped */
   .group-head {
@@ -131,17 +136,18 @@
             <div class="text-muted small">{{ row.application.name if row.application.name else '' }}</div>
           </td>
 
-          <td class="sticky-col-2 col-overall-score">
-            {{ "%.2f"|format(row.overall_score) }}
+          <td class="sticky-col-2 col-overall-score fw-bold">
+            {% set overall_display = row.overall_score * 10 %}
+            {{ "%.2f"|format(overall_display) }}
           </td>
-          <td class="sticky-col-3 col-overall-rank">
+          <td class="sticky-col-3 col-overall-rank fw-bold scorer-res">
             {{ row.overall_rank }}
           </td>
 
           {% for cell in row.assessors %}
-            <td>
+            <td class="scorer-left">
               {% if cell.score is not none %}
-                {{ "%.2f"|format(cell.score) }}
+                {{ "%.2f"|format(cell.score * 10) }}
                 {% if not cell.complete %}
                   <span class="text-muted small">({{ cell.count }}/{{ cell.total }})</span>
                 {% endif %}
@@ -149,7 +155,7 @@
                 <span class="text-muted">—</span>
               {% endif %}
             </td>
-            <td class="scorer-res">
+            <td class="scorer-right">
               {% if cell.rank %}
                 {{ cell.rank }}
               {% else %}
