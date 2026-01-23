@@ -8,6 +8,7 @@ from functools import wraps
 import models
 import time
 import re
+from services.scores import build_scores_summary_context
 from collections import defaultdict
 from itsdangerous import URLSafeSerializer
 from datetime import timedelta
@@ -362,100 +363,13 @@ def create_app():
 
         selected_assessment = None
         criteria_list = []
-        panel_breakdown_list = []   # ← safe defaults
+        panel_breakdown_list = []
         app_breakdown_list = []
 
-        # accept assessment_id from POST or GET
         aid = request.values.get('assessment_id')
-
         if aid:
-            selected_assessment = Assessment.query.get(aid)
-
-            # load criteria for headers
-            criteria_list = (Criteria.query
-                            .filter_by(assessment_id=selected_assessment.id)
-                            .order_by(Criteria.id)
-                            .all())
-
-            raw_scores = (
-                db.session.query(Score, Assessor, Application, Criteria)
-                .join(Assessor, Score.assessor_id == Assessor.id)
-                .join(Application, Score.application_id == Application.id)
-                .join(Criteria, Score.criteria_id == Criteria.id)
-                .filter(Assessor.assessment_id == selected_assessment.id)
-                .all()
-            )
-
-            # 1) Panel-member breakdown
-            panel_breakdown = {}
-            for score, assessor, application, criteria in raw_scores:
-                w = (score.score * criteria.weight) / 100
-                entry = panel_breakdown.setdefault(assessor.id, {
-                    "assessor": assessor,
-                    "scores": [],
-                    "finalised": True
-                })
-                if not score.finalised:
-                    entry["finalised"] = False
-                entry["scores"].append({
-                    "application": application,
-                    "criteria": criteria,
-                    "weighted": w,
-                    "comment": score.comment,
-                    "score": score.score,
-                })
-            # sort by application id then criteria id
-            for entry in panel_breakdown.values():
-                entry["scores"].sort(key=lambda x: (x["application"].id, x["criteria"].id))
-            panel_breakdown_list = list(panel_breakdown.values())
-
-            # Group each assessor's rows by application for the accordion
-            for pb in panel_breakdown_list:
-                apps = {}
-                for item in pb["scores"]:
-                    app_id = item["application"].id
-                    block = apps.setdefault(app_id, {
-                        "application": item["application"],
-                        "criteria_items": []  # list of {criteria, weighted, comment}
-                    })
-                    block["criteria_items"].append({
-                        "criteria": item["criteria"],
-                        "score": item["score"],
-                        "weighted": item["weighted"],   # 0..10 scale here
-                        "comment":  item["comment"] or ""
-                    })
-                # sort criteria within each app by criteria.id for consistent order
-                for blk in apps.values():
-                    blk["criteria_items"].sort(key=lambda x: x["criteria"].id)
-                # save a sorted list by application.id for stable accordion order
-                pb["by_application"] = sorted(apps.values(), key=lambda x: x["application"].id)
-
-            # 2) Application-centric breakdown (per assessor, with per-criterion weights)
-            app_breakdown = {}
-            for score, assessor, application, criteria in raw_scores:
-                w = (score.score * criteria.weight) / 100
-                entry = app_breakdown.setdefault(application.id, {
-                    "application": application,
-                    "assessors": {}
-                })
-                asc = entry["assessors"].setdefault(assessor.id, {
-                    "assessor": assessor,
-                    "weights": {},
-                    "total_weighted": 0
-                })
-                asc["weights"][criteria.id] = w
-                asc["total_weighted"] += w
-
-            # flatten and compute averages; sort apps by avg desc
-            for entry in app_breakdown.values():
-                rows = list(entry["assessors"].values())
-                avg_w = (sum(r["total_weighted"] for r in rows) / len(rows)) if rows else 0
-                app_breakdown_list.append({
-                    "application":  entry["application"],
-                    "assessors":    rows,
-                    "avg_weighted": avg_w
-                })
-            app_breakdown_list.sort(key=lambda x: x["avg_weighted"], reverse=True)
+            selected_assessment, criteria_list, panel_breakdown_list, app_breakdown_list = \
+                build_scores_summary_context(int(aid))
 
         return render_template(
             'admin_scores_summary.html',
@@ -465,6 +379,7 @@ def create_app():
             app_breakdown=app_breakdown_list,
             criteria_list=criteria_list
         )
+
     
     @app.route('/admin/reopen-assessor/<int:assessor_id>', methods=['POST'])
     @admin_login_required
@@ -501,12 +416,31 @@ def create_app():
         form_key      = request.form.get('form_key')
         report_type   = request.form.get('report_type', 'grant')
         round_field_id= request.form.get('round')          # only for grant
-        table_html    = request.form.get('table_html')
-
-        if not all([assessment_id, form_key, table_html]):
+        
+        if not all([assessment_id, form_key]):
             return jsonify({"error": "Missing required fields"}), 400
         if report_type == 'grant' and not round_field_id:
             return jsonify({"error": "Round is required for Grant Report"}), 400
+        
+        assessment = Assessment.query.get(assessment_id)
+        if not assessment:
+            return jsonify({"error":"Assessment not found"}), 404
+
+        selected_assessment, criteria_list, panel_breakdown_list, app_breakdown_list = \
+            build_scores_summary_context(int(assessment_id))
+
+        if not selected_assessment:
+            return jsonify({"error":"Assessment not found"}), 404
+
+        # NEW: render the summary fragment as HTML to publish
+        table_html = render_template(
+            'admin_scores_summary_publish_fragment.html',
+            selected_assessment=selected_assessment,
+            criteria_list=criteria_list,
+            panel_breakdown=panel_breakdown_list,
+            app_breakdown=app_breakdown_list
+        )
+
 
         # 1) auth
         token = get_token()
