@@ -8,6 +8,8 @@ from functools import wraps
 import models
 import time
 import re
+from services.scores import build_scores_summary_context
+from collections import defaultdict
 from itsdangerous import URLSafeSerializer
 from datetime import timedelta
 from flask_simple_captcha import CAPTCHA
@@ -361,100 +363,13 @@ def create_app():
 
         selected_assessment = None
         criteria_list = []
-        panel_breakdown_list = []   # ← safe defaults
+        panel_breakdown_list = []
         app_breakdown_list = []
 
-        # accept assessment_id from POST or GET
         aid = request.values.get('assessment_id')
-
         if aid:
-            selected_assessment = Assessment.query.get(aid)
-
-            # load criteria for headers
-            criteria_list = (Criteria.query
-                            .filter_by(assessment_id=selected_assessment.id)
-                            .order_by(Criteria.id)
-                            .all())
-
-            raw_scores = (
-                db.session.query(Score, Assessor, Application, Criteria)
-                .join(Assessor, Score.assessor_id == Assessor.id)
-                .join(Application, Score.application_id == Application.id)
-                .join(Criteria, Score.criteria_id == Criteria.id)
-                .filter(Assessor.assessment_id == selected_assessment.id)
-                .all()
-            )
-
-            # 1) Panel-member breakdown
-            panel_breakdown = {}
-            for score, assessor, application, criteria in raw_scores:
-                w = (score.score * criteria.weight) / 100
-                entry = panel_breakdown.setdefault(assessor.id, {
-                    "assessor": assessor,
-                    "scores": [],
-                    "finalised": True
-                })
-                if not score.finalised:
-                    entry["finalised"] = False
-                entry["scores"].append({
-                    "application": application,
-                    "criteria": criteria,
-                    "weighted": w,
-                    "comment": score.comment,
-                    "score": score.score,
-                })
-            # sort by application id then criteria id
-            for entry in panel_breakdown.values():
-                entry["scores"].sort(key=lambda x: (x["application"].id, x["criteria"].id))
-            panel_breakdown_list = list(panel_breakdown.values())
-
-            # Group each assessor's rows by application for the accordion
-            for pb in panel_breakdown_list:
-                apps = {}
-                for item in pb["scores"]:
-                    app_id = item["application"].id
-                    block = apps.setdefault(app_id, {
-                        "application": item["application"],
-                        "criteria_items": []  # list of {criteria, weighted, comment}
-                    })
-                    block["criteria_items"].append({
-                        "criteria": item["criteria"],
-                        "score": item["score"],
-                        "weighted": item["weighted"],   # 0..10 scale here
-                        "comment":  item["comment"] or ""
-                    })
-                # sort criteria within each app by criteria.id for consistent order
-                for blk in apps.values():
-                    blk["criteria_items"].sort(key=lambda x: x["criteria"].id)
-                # save a sorted list by application.id for stable accordion order
-                pb["by_application"] = sorted(apps.values(), key=lambda x: x["application"].id)
-
-            # 2) Application-centric breakdown (per assessor, with per-criterion weights)
-            app_breakdown = {}
-            for score, assessor, application, criteria in raw_scores:
-                w = (score.score * criteria.weight) / 100
-                entry = app_breakdown.setdefault(application.id, {
-                    "application": application,
-                    "assessors": {}
-                })
-                asc = entry["assessors"].setdefault(assessor.id, {
-                    "assessor": assessor,
-                    "weights": {},
-                    "total_weighted": 0
-                })
-                asc["weights"][criteria.id] = w
-                asc["total_weighted"] += w
-
-            # flatten and compute averages; sort apps by avg desc
-            for entry in app_breakdown.values():
-                rows = list(entry["assessors"].values())
-                avg_w = (sum(r["total_weighted"] for r in rows) / len(rows)) if rows else 0
-                app_breakdown_list.append({
-                    "application":  entry["application"],
-                    "assessors":    rows,
-                    "avg_weighted": avg_w
-                })
-            app_breakdown_list.sort(key=lambda x: x["avg_weighted"], reverse=True)
+            selected_assessment, criteria_list, panel_breakdown_list, app_breakdown_list = \
+                build_scores_summary_context(int(aid))
 
         return render_template(
             'admin_scores_summary.html',
@@ -464,6 +379,7 @@ def create_app():
             app_breakdown=app_breakdown_list,
             criteria_list=criteria_list
         )
+
     
     @app.route('/admin/reopen-assessor/<int:assessor_id>', methods=['POST'])
     @admin_login_required
@@ -500,12 +416,31 @@ def create_app():
         form_key      = request.form.get('form_key')
         report_type   = request.form.get('report_type', 'grant')
         round_field_id= request.form.get('round')          # only for grant
-        table_html    = request.form.get('table_html')
-
-        if not all([assessment_id, form_key, table_html]):
+        
+        if not all([assessment_id, form_key]):
             return jsonify({"error": "Missing required fields"}), 400
         if report_type == 'grant' and not round_field_id:
             return jsonify({"error": "Round is required for Grant Report"}), 400
+        
+        assessment = Assessment.query.get(assessment_id)
+        if not assessment:
+            return jsonify({"error":"Assessment not found"}), 404
+
+        selected_assessment, criteria_list, panel_breakdown_list, app_breakdown_list = \
+            build_scores_summary_context(int(assessment_id))
+
+        if not selected_assessment:
+            return jsonify({"error":"Assessment not found"}), 404
+
+        # NEW: render the summary fragment as HTML to publish
+        table_html = render_template(
+            'admin_scores_summary_publish_fragment.html',
+            selected_assessment=selected_assessment,
+            criteria_list=criteria_list,
+            panel_breakdown=panel_breakdown_list,
+            app_breakdown=app_breakdown_list
+        )
+
 
         # 1) auth
         token = get_token()
@@ -922,6 +857,132 @@ def create_app():
             old_weights_map=old_weights_map
         )
 
+    @app.route('/admin/scores/summary-compare', methods=['GET', 'POST'])
+    @admin_login_required
+    def admin_scores_summary_compare():
+        assessments = Assessment.query.order_by(Assessment.name).all()
+
+        selected_assessment = None
+        criteria_list = []
+        assessors_list = []
+        compare_rows = []
+
+        aid = request.values.get('assessment_id')
+        if aid:
+            selected_assessment = Assessment.query.get(aid)
+
+            criteria_list = (Criteria.query
+                            .filter_by(assessment_id=selected_assessment.id)
+                            .order_by(Criteria.id)
+                            .all())
+
+            raw_scores = (
+                db.session.query(Score, Assessor, Application, Criteria)
+                .join(Assessor, Score.assessor_id == Assessor.id)
+                .join(Application, Score.application_id == Application.id)
+                .join(Criteria, Score.criteria_id == Criteria.id)
+                .filter(Assessor.assessment_id == selected_assessment.id)
+                .all()
+            )
+
+            # --- collect assessors + applications ---
+            assessors_by_id = {}
+            apps_by_id = {}
+
+            # app_totals[app_id][assessor_id] = total_weighted_score (0..10 overall scale)
+            app_totals = defaultdict(lambda: defaultdict(float))
+
+            # optional: completeness counters if you want later
+            app_crit_count = defaultdict(lambda: defaultdict(int))  # app_id -> assessor_id -> count
+            total_criteria = len(criteria_list)
+
+            for score, assessor, application, criteria in raw_scores:
+                assessors_by_id[assessor.id] = assessor
+                apps_by_id[application.id] = application
+
+                # weighted contribution on 0..10 scale overall
+                # (score is 0..10, weights sum to 100 => overall total ends up 0..10)
+                w = (score.score * criteria.weight) / 100.0
+
+                app_totals[application.id][assessor.id] += w
+                app_crit_count[application.id][assessor.id] += 1
+
+            # stable assessor ordering (pick whichever field you have: name, last_name etc.)
+            assessors_list = sorted(
+                assessors_by_id.values(),
+                key=lambda a: (getattr(a, "name", "") or "", a.id)
+            )
+
+            # --- overall averages per app ---
+            overall_by_app = {}
+            for app_id, application in apps_by_id.items():
+                scores = [app_totals[app_id].get(a.id) for a in assessors_list if a.id in app_totals[app_id]]
+                overall_avg = (sum(scores) / len(scores)) if scores else 0
+                overall_by_app[app_id] = overall_avg
+
+            # --- ranking helpers (dense ranking: 1,1,2,3...) ---
+            def dense_rank(sorted_items):
+                """
+                sorted_items: list of tuples (key, score) already sorted desc by score
+                returns dict key->rank
+                """
+                ranks = {}
+                last_score = None
+                rank = 0
+                for i, (k, s) in enumerate(sorted_items):
+                    if last_score is None or s != last_score:
+                        rank += 1
+                        last_score = s
+                    ranks[k] = rank
+                return ranks
+
+            # overall ranks
+            overall_sorted = sorted(overall_by_app.items(), key=lambda kv: kv[1], reverse=True)
+            overall_ranks = dense_rank(overall_sorted)
+
+            # per-assessor ranks
+            assessor_ranks = {}
+            for a in assessors_list:
+                items = []
+                for app_id in apps_by_id.keys():
+                    # if an assessor never scored that app, you can treat as None or 0
+                    # I’d treat missing as None so it’s obvious it’s incomplete.
+                    if a.id in app_totals[app_id]:
+                        items.append((app_id, app_totals[app_id][a.id]))
+                items.sort(key=lambda kv: kv[1], reverse=True)
+                assessor_ranks[a.id] = dense_rank(items)
+
+            # --- build rows in overall-ranked order ---
+            for app_id, overall_avg in overall_sorted:
+                application = apps_by_id[app_id]
+                row = {
+                    "application": application,
+                    "overall_score": overall_avg,
+                    "overall_rank": overall_ranks.get(app_id),
+                    "assessors": []
+                }
+
+                for a in assessors_list:
+                    has_score = a.id in app_totals[app_id]
+                    row["assessors"].append({
+                        "assessor": a,
+                        "score": app_totals[app_id].get(a.id),                 # float or None
+                        "rank": assessor_ranks.get(a.id, {}).get(app_id),      # int or None
+                        "complete": (app_crit_count[app_id].get(a.id, 0) == total_criteria),
+                        "count": app_crit_count[app_id].get(a.id, 0),
+                        "total": total_criteria
+                    })
+
+                compare_rows.append(row)
+
+        return render_template(
+            'admin_scores_summary_compare.html',
+            assessments=assessments,
+            selected_assessment=selected_assessment,
+            criteria_list=criteria_list,
+            assessors_list=assessors_list,
+            compare_rows=compare_rows
+        )
 
     @app.route('/score/<token>/autosave', methods=['POST'])
     def autosave_score(token):
