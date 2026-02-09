@@ -8,6 +8,7 @@ class Assessment(db.Model):
     pdf_filename       = db.Column(db.String(255), nullable=True) 
     pdf_score_filename = db.Column(db.String(255), nullable=True)
     sharepoint_dir     = db.Column(db.String(255), nullable=True)
+    map_url            = db.Column(db.Text, nullable=True)
     applications = db.relationship(
         'Application',
         back_populates='assessment',

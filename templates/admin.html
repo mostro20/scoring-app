@@ -128,6 +128,21 @@
         </div>
 
         <div class="mb-3">
+          <label for="map_url" class="form-label">Map URL (optional)</label>
+          <input
+            type="url"
+            id="map_url"
+            name="map_url"
+            class="form-control"
+            placeholder="https://..."
+            value="{{ map_url if map_url else '' }}"
+          >
+          <small class="text-muted">
+            If provided, assessors can open it in the right-side viewer using a “View map” button.
+          </small>
+        </div>            
+
+        <div class="mb-3">
           <label for="assessors" class="form-label">Panel member names (one per line)</label>
           <textarea
             id="assessors"
@@ -147,13 +162,6 @@
       </form>
       <br><br>
     </div>
-    <script>
-        document.getElementById('assessor-form').addEventListener('submit', function(e) {
-          // to do, hide the submitted form
-          var hideSubmittedForm = document.getElementById('assessor-form');
-          hideSubmittedForm.show();
-        });
-    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
 </html>
