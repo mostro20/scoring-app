@@ -130,7 +130,7 @@ def create_app():
         from werkzeug.utils import secure_filename  # Ensure this is imported
         assessments = Assessment.query.order_by(Assessment.name).all()
         selected = None
-        apps_txt = criteria_txt = assessors_txt = sharepoint_dir = ''
+        apps_txt = criteria_txt = assessors_txt = sharepoint_dir = map_url = ''
 
         if request.method == 'GET':
             aid = request.args.get('assessment_id')
@@ -141,6 +141,7 @@ def create_app():
                 criteria_txt = '\n'.join(f"{c.description}|{c.weight}" for c in selected.criteria)
                 assessors_txt = '\n'.join(m.name for m in selected.assessors)
                 sharepoint_dir = selected.sharepoint_dir
+                map_url = selected.map_url
 
         if request.method == 'POST':
             aid = request.form.get('assessment_id')
@@ -150,14 +151,20 @@ def create_app():
             criteria_raw  = request.form.get('criteria','').strip().splitlines()
             assessors_raw = request.form.get('assessors','').strip().splitlines()
             sharepoint_dir= request.form['sharepoint_dir']
+            map_url = (request.form.get("map_url") or "").strip()
 
             # load or create the Assessment
             if aid:
                 selected = Assessment.query.get(aid)
                 selected.name = name
                 selected.sharepoint_dir = sharepoint_dir
+                selected.map_url = map_url
             else:
-                selected = Assessment(name=name, sharepoint_dir=sharepoint_dir)
+                selected = Assessment(
+                    name=name, 
+                    sharepoint_dir=sharepoint_dir,
+                    map_url=map_url
+                )
                 db.session.add(selected)
                 db.session.flush()  # so selected.id is available
 
@@ -224,6 +231,7 @@ def create_app():
             criteria_text=criteria_txt,
             assessors_text=assessors_txt,
             sharepoint_dir=sharepoint_dir,
+            map_url=map_url,
         )
 
     @app.route('/admin/scores', methods=['GET', 'POST'])

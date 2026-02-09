@@ -35,6 +35,16 @@
 
                 <!-- PDF view switch -->
                 <div class="btn-group btn-group-sm" role="group" aria-label="PDF view">
+                  {% if assessment.map_url %}
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    id="btnMap"
+                    data-mode="map"
+                  >
+                    View map
+                  </button>
+                  {% endif %}
                   <button
                     type="button"
                     class="btn btn-outline-secondary"
@@ -147,6 +157,7 @@
           class="col-md-7 hide-from-print-summary"
           data-assessment-url="{{ url_for('uploaded_file', filename=assessment.pdf_filename) if assessment.pdf_filename else '' }}"
           data-guide-url="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) if assessment.pdf_score_filename else '' }}"
+          data-map-url="{{ assessment.map_url or '' }}"
         >
           <iframe id="pdfFrame" width="100%" height="1200px" class="border" title="Reference PDF"></iframe>
           <div id="pdfMissing" class="alert alert-warning m-2 d-none">
@@ -315,16 +326,18 @@
         const pdfFrame   = document.getElementById('pdfFrame');
         const pdfMissing = document.getElementById('pdfMissing');
 
-        const urls = {
-          assessment: pdfCol.dataset.assessmentUrl || '',
-          guide:      pdfCol.dataset.guideUrl || ''
-        };
+      const urls = {
+        assessment: pdfCol?.dataset.assessmentUrl || '',
+        guide:      pdfCol?.dataset.guideUrl || '',
+        map:        pdfCol?.dataset.mapUrl || ''
+      };
 
         // Buttons
         const btnAssessment = document.getElementById('btnAssessment');
         const btnGuide      = document.getElementById('btnGuide');
+        const btnMap        = document.getElementById('btnMap');
         const btnHide       = document.getElementById('btnHide');
-        const btns = [btnAssessment, btnGuide, btnHide];
+        const btns = [btnAssessment, btnGuide, btnMap, btnHide];
 
         function setActive(mode) {
           btns.forEach(b => {
