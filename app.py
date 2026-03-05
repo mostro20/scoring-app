@@ -505,7 +505,7 @@ def create_app():
         F_FINAL    = os.environ.get('FOLIO_FIELD_ID_PROC_FINAL_SCORE')
         F_REQ      = os.environ.get('FOLIO_FIELD_ID_PROC_FUNDING_REQUESTED')
         F_GIVEN    = os.environ.get('FOLIO_FIELD_ID_PROC_FUNDING_GRANTED')
-        F_SUCC     = os.environ.get('FOLIO_FIELD_ID_PROC_SUCCESS')
+        #F_SUCC     = os.environ.get('FOLIO_FIELD_ID_PROC_SUCCESS')
         A_YES      = os.environ.get('FOLIO_ANSWER_ID_SUCCESS_YES')
         A_NO       = os.environ.get('FOLIO_ANSWER_ID_SUCCESS_NO')
         F_HTML     = os.environ.get('FOLIO_FIELD_ID_PROC_TABLE_HTML')
@@ -516,7 +516,7 @@ def create_app():
             "FOLIO_FIELD_ID_PROC_FINAL_SCORE":F_FINAL,
             "FOLIO_FIELD_ID_PROC_FUNDING_REQUESTED":F_REQ,
             "FOLIO_FIELD_ID_PROC_FUNDING_GRANTED":F_GIVEN,
-            "FOLIO_FIELD_ID_PROC_SUCCESS":F_SUCC,
+            #"FOLIO_FIELD_ID_PROC_SUCCESS":F_SUCC,
             "FOLIO_ANSWER_ID_SUCCESS_YES":A_YES,
             "FOLIO_ANSWER_ID_SUCCESS_NO":A_NO,
             "FOLIO_FIELD_ID_PROC_TABLE_HTML":F_HTML
@@ -570,11 +570,11 @@ def create_app():
             # GraphQL numeric literal, not quoted
             return f'{{fieldId:"{field_id}", numeric:{num}' + (f', rowIndex:{rowIndex}' if rowIndex is not None else '') + '}'
 
-        def resp_select(field_id, answer_id, rowIndex=None):
-            return (
-                '{fieldId:"' + field_id + '", fieldAnswerResponses:[{fieldAnswerId:"' + answer_id + '"}]' +
-                (f', rowIndex:{rowIndex}' if rowIndex is not None else '') + '}'
-            )
+        #def resp_select(field_id, answer_id, rowIndex=None):
+        #    return (
+        #        '{fieldId:"' + field_id + '", fieldAnswerResponses:[{fieldAnswerId:"' + answer_id + '"}]' +
+        #        (f', rowIndex:{rowIndex}' if rowIndex is not None else '') + '}'
+        #    )
 
         frags = []
         for i, g in enumerate(grouped_list):
@@ -590,8 +590,8 @@ def create_app():
                 frags.append(resp_numeric(F_REQ, float(app.funding_requested), rowIndex=i))
             if app.funding_given is not None:
                 frags.append(resp_numeric(F_GIVEN, float(app.funding_given), rowIndex=i))
-            if app.successful is not None:
-                frags.append(resp_select(F_SUCC, A_YES if app.successful else A_NO, rowIndex=i))
+            #if app.successful is not None:
+            #    frags.append(resp_select(F_SUCC, A_YES if app.successful else A_NO, rowIndex=i))
 
         # Also push the whole Outcome HTML to a field
         frags.append(resp_text(F_HTML, table_html))
