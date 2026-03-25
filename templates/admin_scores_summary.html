@@ -4,239 +4,305 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Administration - Scoring and progress</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" type="text/css" href="/static/styles.css" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#eef9f8',
+                100: '#d5efed',
+                200: '#addfda',
+                300: '#76c7c1',
+                400: '#3daaa4',
+                500: '#008480',
+                600: '#0b6a6b',
+                700: '#0c5456',
+                800: '#0d4346',
+                900: '#072c32'
+              },
+              ink: '#102226',
+              mist: '#f4f7f6'
+            },
+            boxShadow: {
+              panel: '0 24px 60px rgba(7, 44, 50, 0.18)'
+            }
+          }
+        }
+      };
+    </script>
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
     <link rel="stylesheet" href="/static/print.css" media="print">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
   </head>
-  <body>
-    <div class="container">
-        <nav class="navbar navbar-expand-lg bg-body-tertiary hide-from-print-summary">
-          <div class="container-fluid">
-            <img src="/static/HNC-logo-lockup-color.svg" alt="Logo" width="250" class="d-inline-block align-text-top">
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
-              <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-              <div class="navbar-nav">
-                <a class="nav-link" aria-current="page" href="/admin">Create/edit assessments</a>
-                <a class="nav-link" href="/admin/assessors">View assessor links</a>
-                <a class="nav-link" href="/admin/scores">Review scores and publish to Folio</a>
-                <a class="nav-link active" href="/admin/scores/summary">Assessment summary</a>
-              </div>
+  <body class="min-h-screen bg-mist text-ink antialiased">
+    <div class="hidden lg:col-span-12"></div>
+    <div class="absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(circle_at_top,_rgba(0,132,128,0.16),_transparent_55%)]"></div>
+    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <section class="admin-card p-5 sm:p-6 hide-from-print-summary">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div class="flex items-center gap-4">
+            <img src="/static/HNC-logo-lockup-color.svg" alt="Logo" class="h-12 w-auto sm:h-14">
+            <div>
+              <p class="admin-kicker">Admin Console</p>
+              <p class="mt-1 text-sm text-slate-500">Assessment summaries and panel detail</p>
             </div>
           </div>
-      </nav>
-    <div class="col">
-      <h1 class="hide-from-print-summary">Important assessment details</h1>
-
-      <p class="hide-from-print-summary">
-        <a href="/admin/scores/summary-history">View score history assessment screen</a>
-         |
-        <a href="/admin/scores/summary-compare">View score compare screen</a>
-      </p>
-
-      <form method="POST" action="{{ url_for('admin_scores_summary') }}" class="mb-4">
-        <div class="mb-3 hide-from-print-summary">
-            <label for="assessment">Select Assessment:</label>
-            <select class="form-select" name="assessment_id" id="assessment" required>
-            <option value="">-- Select an assessment --</option>
-            {% for a in assessments %}
-            <option value="{{ a.id }}"
-                {% if selected_assessment and a.id == selected_assessment.id %}selected{% endif %}>
-                {{ a.name }}
-            </option>
-            {% endfor %}
-            </select>
+          <nav class="flex flex-wrap gap-2">
+            <a class="admin-nav-link" href="/admin">Create/edit assessments</a>
+            <a class="admin-nav-link" href="/admin/assessors">View assessor links</a>
+            <a class="admin-nav-link" href="/admin/scores">Review scores and publish to Folio</a>
+            <a class="admin-nav-link admin-nav-link-active" href="/admin/scores/summary">Assessment summary</a>
+          </nav>
         </div>
-        <button type="submit" class="btn btn-primary hide-from-print-summary"><i class="bi bi-file-earmark-arrow-down"></i> Load assessor summary</button>
+      </section>
+
+      <section class="mt-6 admin-card p-6 sm:p-8">
+        <div class="max-w-4xl">
+          <p class="admin-kicker hide-from-print-summary">Assessment Summary</p>
+          <h1 class="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl hide-from-print-summary">Important assessment details</h1>
+          <div class="mt-4 flex flex-wrap gap-3 text-sm hide-from-print-summary">
+            <a href="/admin/scores/summary-history" class="admin-btn admin-btn-secondary">View score history assessment screen</a>
+            <a href="/admin/scores/summary-compare" class="admin-btn admin-btn-secondary">View score compare screen</a>
+          </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('admin_scores_summary') }}" class="mt-8 max-w-3xl space-y-5">
+          <div class="hide-from-print-summary">
+            <label for="assessment" class="mb-2 block text-sm font-medium text-slate-700">Select Assessment</label>
+            <select class="admin-select" name="assessment_id" id="assessment" required>
+              <option value="">-- Select an assessment --</option>
+              {% for a in assessments %}
+              <option value="{{ a.id }}" {% if selected_assessment and a.id == selected_assessment.id %}selected{% endif %}>
+                {{ a.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="admin-btn hide-from-print-summary">Load assessor summary</button>
         </form>
 
         {% if selected_assessment %}
-        <hr class="hide-from-print-summary">
+          <div class="mt-10 border-t border-slate-200 pt-8">
+            <p class="mb-4 text-sm hide-from-print-summary">
+              <a href="#appbreak">Skip to application breakdown by assessor</a>
+            </p>
 
-        <p class="hide-from-print-summary"><i class="bi bi-arrow-down"></i> <a href="#appbreak">Skip to application breakdown by assessor</a></p>
-
-        <hr class="hide-from-print-summary">
-
-        <h2><i class="bi bi-clipboard-data-fill"></i> Application Breakdown</h2>
-        <div class="accordion" id="appBreakdownAccordion">
-          {% for ab in app_breakdown %}
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="heading-{{ ab.application.id }}">
-              <button
-                class="accordion-button collapsed"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#collapse-{{ ab.application.id }}"
-                aria-expanded="false"
-                aria-controls="collapse-{{ ab.application.id }}"
-              >
-                <i class="bi bi-clipboard2-check me-2"></i>
-                {{ ab.application.code }}
-                &nbsp;&nbsp;
-                <span class="badge bg-secondary hide-from-print-summary">
-                  Avg: {{ (ab.avg_weighted * 10) | round(2) }} / 100
-                </span>
-              </button>
-            </h2>
-            <div
-              id="collapse-{{ ab.application.id }}"
-              class="accordion-collapse collapse"
-              aria-labelledby="heading-{{ ab.application.id }}"
-              data-bs-parent="#appBreakdownAccordion"
-            >
-              <div class="accordion-body p-0">
-                <table class="table table-sm table-striped mb-0">
-                  <thead>
-                    <tr>
-                      <th>Assessor</th>
-                      {# one header per criterion #}
-                      {% for crit in criteria_list %}
-                      <th class="text-center">{{ crit.description }} <small>({{ crit.weight }}%)</small></th>
-                      {% endfor %}
-                      <th class="text-end">Weighted Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in ab.assessors %}
-                    <tr>
-                      <td>{{ row.assessor.name }}</td>
-                      {# each criterion's weighted score #}
-                      {% for crit in criteria_list %}
-                      <td class="text-center">
-                        {{ (row.weights[crit.id] * 10) | round(2) if crit.id in row.weights else '' }}
-                      </td>
-                      {% endfor %}
-                      <td class="text-end">{{ (row.total_weighted * 10) | round(2) }} / 100</td>
-                    </tr>
-                    {% endfor %}
-                    {# final Average row, spanning criteria columns #}
-                    {% set avg = (ab.avg_weighted * 10) | round(2) %}
-                    <tr class="table-secondary">
-                      <td><strong>Average</strong></td>
-                      <td colspan="{{ criteria_list|length }}"></td>
-                      <td class="text-end"><strong>{{ avg }} / 100</strong></td>
-                    </tr>
-                  </tbody>
-                </table>
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="admin-kicker">Application Overview</p>
+                <h2 class="mt-2 text-2xl font-semibold text-slate-900">Application Breakdown</h2>
               </div>
+              <span class="admin-badge">{{ app_breakdown|length }} applications</span>
+            </div>
+
+            <div class="mt-6 space-y-4">
+              {% for ab in app_breakdown %}
+              <article class="accordion-item overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm" data-accordion-item>
+                <h2 id="heading-{{ ab.application.id }}">
+                  <button
+                    class="accordion-button group flex w-full items-start justify-between gap-4 px-5 py-5 text-left sm:px-6"
+                    type="button"
+                    data-accordion-trigger
+                    data-target="collapse-{{ ab.application.id }}"
+                    aria-expanded="false"
+                    aria-controls="collapse-{{ ab.application.id }}"
+                  >
+                    <span>
+                      <span class="block text-lg font-semibold text-slate-900">{{ ab.application.code }}</span>
+                      <span class="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600 hide-from-print-summary">
+                        Avg: {{ (ab.avg_weighted * 10) | round(2) }} / 100
+                      </span>
+                    </span>
+                    <span class="accordion-chevron mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition">
+                      <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.937a.75.75 0 1 1 1.08 1.04l-4.25 4.51a.75.75 0 0 1-1.08 0l-4.25-4.51a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"></path>
+                      </svg>
+                    </span>
+                  </button>
+                </h2>
+                <div id="collapse-{{ ab.application.id }}" class="accordion-panel hidden border-t border-slate-200 bg-slate-50/70" data-accordion-panel>
+                  <div class="admin-table-wrap rounded-none border-0">
+                    <table class="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Assessor</th>
+                          {% for crit in criteria_list %}
+                          <th class="text-center">{{ crit.description }} <span class="admin-muted">({{ crit.weight }}%)</span></th>
+                          {% endfor %}
+                          <th class="text-right">Weighted Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for row in ab.assessors %}
+                        <tr>
+                          <td class="font-medium text-slate-900">{{ row.assessor.name }}</td>
+                          {% for crit in criteria_list %}
+                          <td class="text-center">{{ (row.weights[crit.id] * 10) | round(2) if crit.id in row.weights else '' }}</td>
+                          {% endfor %}
+                          <td class="text-right font-medium text-slate-900">{{ (row.total_weighted * 10) | round(2) }} / 100</td>
+                        </tr>
+                        {% endfor %}
+                        {% set avg = (ab.avg_weighted * 10) | round(2) %}
+                        <tr class="admin-table-summary">
+                          <td><strong>Average</strong></td>
+                          <td colspan="{{ criteria_list|length }}"></td>
+                          <td class="text-right"><strong>{{ avg }} / 100</strong></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </article>
+              {% endfor %}
             </div>
           </div>
-          {% endfor %}
-        </div>
         {% endif %}
 
-        <p class="hide-from-print-summary">&nbsp;</p>
+        <div class="mt-12 hide-from-print-summary">
+          <a id="appbreak"></a>
+          <p class="admin-kicker">Panel Detail</p>
+          <h2 class="mt-2 text-2xl font-semibold text-slate-900">Panel-Member Breakdown</h2>
+        </div>
 
-        <a name="appbreak"></a><h2 class="hide-from-print-summary"><i class="bi bi-window-plus"></i> Panel-Member Breakdown</h2>
         {% for pb in panel_breakdown %}
-            <h2 class="h5 report-page-break">
-              <i class="bi bi-person-circle"></i> {{ pb.assessor.name }}
-              <span class="small text-muted hide-from-print-summary">
-                [ {{ 'scoring finalised' if pb.finalised else 'scoring in progress' }} ]
-              </span>
+          <section class="mt-8 admin-stack">
+            <div class="report-page-break flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 class="text-xl font-semibold text-slate-900">{{ pb.assessor.name }}</h2>
+                <p class="text-sm text-slate-500 hide-from-print-summary">[ {{ 'scoring finalised' if pb.finalised else 'scoring in progress' }} ]</p>
+              </div>
 
               {% if pb.finalised %}
               <form
                 method="POST"
                 action="{{ url_for('reopen_assessor', assessor_id=pb.assessor.id) }}"
-                class="d-inline ms-2"
+                class="hide-from-print-summary"
                 onsubmit="return confirm('Reopen scoring for {{ pb.assessor.name }}? Previous scores will be archived.');"
               >
                 <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
-                <button class="btn btn-sm btn-outline-warning hide-from-print-summary">Reopen scoring</button>
+                <button class="admin-btn admin-btn-warning">Reopen scoring</button>
               </form>
               {% endif %}
-            </h2>
-          <!-- Assessor-specific accordion -->
-          <div class="accordion mb-4" id="assessorAccordion-{{ pb.assessor.id }}">
-            {% for blk in pb.by_application %}
-              {% set app = blk.application %}
-              <div class="accordion-item">
-                <h3 class="accordion-header" id="assessor-{{ pb.assessor.id }}-heading-{{ app.id }}">
-                  <button
-                    class="accordion-button collapsed"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#assessor-{{ pb.assessor.id }}-collapse-{{ app.id }}"
-                    aria-expanded="false"
-                    aria-controls="assessor-{{ pb.assessor.id }}-collapse-{{ app.id }}"
-                  >
-                    <i class="bi bi-clipboard2 me-2"></i>
-                    {{ app.code }}
-                  </button>
-                </h3>
-                <div
-                  id="assessor-{{ pb.assessor.id }}-collapse-{{ app.id }}"
-                  class="accordion-collapse collapse"
-                  aria-labelledby="assessor-{{ pb.assessor.id }}-heading-{{ app.id }}"
-                  data-bs-parent="#assessorAccordion-{{ pb.assessor.id }}"
-                >
-                  <div class="accordion-body p-0">
-                    <!-- Weighted scores by criteria -->
-                    <table class="table table-sm table-striped mb-0">
-                      <thead>
-                        <tr>
-                          <th>Criteria</th>
-                          <th>Raw Score</th>
-                          <th class="text-end">Weighted Score</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for ci in blk.criteria_items %}
-                        <tr>
-                          <td>
-                            {{ ci.criteria.description }}
-                            <small class="text-muted">({{ ci.criteria.weight }}%)</small>
-                          </td>
-                          <td>{{ci.score}} / 10</td>
-                         
-                          {# convert 0–10 to 0–100 by ×10 #}
-                          <td class="text-end">{{ (ci.weighted * 10) | round(2) }} / {{ ci.criteria.weight }}</td>
-                        </tr>
-                        {% endfor %}
-                        <tr>
-                          {# total is sum of each weighted (0–10); convert to 0–100 by ×10 #}
-                          {% set total_w = blk.criteria_items | sum(attribute='weighted') %}
-                          <td colspan="2"><strong>Total score:</strong> </td>
-                          <td class="text-end"><strong>{{ (total_w * 10) | round(2) }} / 100</strong></td>
-                       </tr>
-                      </tbody>
-                    </table>
+            </div>
 
+            <div class="space-y-4">
+              {% for blk in pb.by_application %}
+                {% set app = blk.application %}
+                <article class="accordion-item overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm" data-accordion-item>
+                  <h3 id="assessor-{{ pb.assessor.id }}-heading-{{ app.id }}">
+                    <button
+                      class="accordion-button group flex w-full items-start justify-between gap-4 px-5 py-5 text-left sm:px-6"
+                      type="button"
+                      data-accordion-trigger
+                      data-target="assessor-{{ pb.assessor.id }}-collapse-{{ app.id }}"
+                      aria-expanded="false"
+                      aria-controls="assessor-{{ pb.assessor.id }}-collapse-{{ app.id }}"
+                    >
+                      <span class="text-lg font-semibold text-slate-900">{{ app.code }}</span>
+                      <span class="accordion-chevron mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition">
+                        <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
+                          <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.937a.75.75 0 1 1 1.08 1.04l-4.25 4.51a.75.75 0 0 1-1.08 0l-4.25-4.51a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"></path>
+                        </svg>
+                      </span>
+                    </button>
+                  </h3>
+                  <div id="assessor-{{ pb.assessor.id }}-collapse-{{ app.id }}" class="accordion-panel hidden border-t border-slate-200 bg-slate-50/70" data-accordion-panel>
+                    <div class="admin-table-wrap rounded-none border-0">
+                      <table class="admin-table">
+                        <thead>
+                          <tr>
+                            <th>Criteria</th>
+                            <th>Raw Score</th>
+                            <th class="text-right">Weighted Score</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {% for ci in blk.criteria_items %}
+                          <tr>
+                            <td>
+                              {{ ci.criteria.description }}
+                              <div class="text-sm text-slate-400">({{ ci.criteria.weight }}%)</div>
+                            </td>
+                            <td>{{ ci.score }} / 10</td>
+                            <td class="text-right">{{ (ci.weighted * 10) | round(2) }} / {{ ci.criteria.weight }}</td>
+                          </tr>
+                          {% endfor %}
+                          <tr class="admin-table-summary">
+                            {% set total_w = blk.criteria_items | sum(attribute='weighted') %}
+                            <td colspan="2"><strong>Total score:</strong></td>
+                            <td class="text-right"><strong>{{ (total_w * 10) | round(2) }} / 100</strong></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
 
-
-                    <!-- Comments section -->
-                    <div class="p-3">
-                      <h4 class="mb-2 h5">Comments</h4>
-                      {% set has_comments = false %}
+                    <div class="border-t border-slate-200 px-5 py-5 sm:px-6">
+                      <h4 class="text-base font-semibold text-slate-900">Comments</h4>
+                      {% set comment_state = namespace(has_comments=false) %}
                       {% for ci in blk.criteria_items %}
                         {% if ci.comment %}
-                          {% set has_comments = true %}
-                          <p class="mb-2 comments-assessor">
-                            <strong>{{ ci.criteria.description }}</strong><br>
-                            <span class="text-muted">{{ ci.comment }}</span>
-                          </p>
+                          {% set comment_state.has_comments = true %}
+                          <div class="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                            <p class="font-medium text-slate-900">{{ ci.criteria.description }}</p>
+                            <p class="mt-1 text-sm leading-6 text-slate-500">{{ ci.comment }}</p>
+                          </div>
                         {% endif %}
                       {% endfor %}
-                      {% if not has_comments %}
-                        <div class="text-muted">&nbsp;</div>
+                      {% if not comment_state.has_comments %}
+                        <div class="mt-4 rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-400">&nbsp;</div>
                       {% endif %}
                     </div>
                   </div>
-                </div>
-              </div>
-            {% endfor %}
-          </div>
+                </article>
+              {% endfor %}
+            </div>
+          </section>
         {% endfor %}
+      </section>
+    </main>
 
-        <p>&nbsp;</p>
+    <script>
+      function openAccordionPanel(panel) {
+        if (!panel) return;
+        panel.classList.remove('hidden');
+        panel.dataset.open = 'true';
+        const trigger = document.querySelector(`[data-target="${panel.id}"]`);
+        const item = trigger?.closest('[data-accordion-item]');
+        if (trigger) {
+          trigger.setAttribute('aria-expanded', 'true');
+          trigger.classList.add('is-open');
+        }
+        if (item) item.classList.add('is-open');
+      }
 
-        <hr>
-        
-    </div>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-</body>
+      function closeAccordionPanel(panel) {
+        if (!panel) return;
+        panel.classList.add('hidden');
+        panel.dataset.open = 'false';
+        const trigger = document.querySelector(`[data-target="${panel.id}"]`);
+        const item = trigger?.closest('[data-accordion-item]');
+        if (trigger) {
+          trigger.setAttribute('aria-expanded', 'false');
+          trigger.classList.remove('is-open');
+        }
+        if (item) item.classList.remove('is-open');
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('[data-accordion-trigger]').forEach(trigger => {
+          trigger.addEventListener('click', function() {
+            const panel = document.getElementById(this.dataset.target);
+            if (!panel) return;
+            const isOpen = panel.dataset.open === 'true';
+            if (isOpen) {
+              closeAccordionPanel(panel);
+            } else {
+              openAccordionPanel(panel);
+            }
+          });
+        });
+      });
+    </script>
+  </body>
 </html>

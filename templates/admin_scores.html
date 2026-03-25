@@ -4,448 +4,423 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Administration - Scoring and progress</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" type="text/css" href="/static/styles.css" /> 
-    <link rel="stylesheet" type="text/css" href="/static/table-styles.css" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#eef9f8',
+                100: '#d5efed',
+                200: '#addfda',
+                300: '#76c7c1',
+                400: '#3daaa4',
+                500: '#008480',
+                600: '#0b6a6b',
+                700: '#0c5456',
+                800: '#0d4346',
+                900: '#072c32'
+              },
+              ink: '#102226',
+              mist: '#f4f7f6'
+            },
+            boxShadow: {
+              panel: '0 24px 60px rgba(7, 44, 50, 0.18)'
+            }
+          }
+        }
+      };
+    </script>
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
+    <link rel="stylesheet" type="text/css" href="/static/table-styles.css">
     <link rel="stylesheet" href="/static/print.css" media="print">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
   </head>
-  <body>
-    <div class="container">
-        <nav class="navbar navbar-expand-lg bg-body-tertiary hide-from-print-summary">
-          <div class="container-fluid">
-            <img src="/static/HNC-logo-lockup-color.svg" alt="Logo" width="250" class="d-inline-block align-text-top">
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
-              <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-              <div class="navbar-nav">
-                <a class="nav-link" aria-current="page" href="/admin">Create/edit assessments</a>
-                <a class="nav-link" href="/admin/assessors">View assessor links</a>
-                <a class="nav-link active" href="/admin/scores">Review scores and publish to Folio</a>
-                <a class="nav-link" href="/admin/scores/summary">Assessment summary</a>
-              </div>
+  <body class="min-h-screen bg-mist text-ink antialiased">
+    <div class="absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(circle_at_top,_rgba(0,132,128,0.16),_transparent_55%)]"></div>
+    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <section class="admin-card p-5 sm:p-6 hide-from-print-summary">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div class="flex items-center gap-4">
+            <img src="/static/HNC-logo-lockup-color.svg" alt="Logo" class="h-12 w-auto sm:h-14">
+            <div>
+              <p class="admin-kicker">Admin Console</p>
+              <p class="mt-1 text-sm text-slate-500">Score review, publication, and audit tools</p>
             </div>
           </div>
-      </nav>
-    <div class="col">
-      <h1>Review scores and publish to Folio</h1>
+          <nav class="flex flex-wrap gap-2">
+            <a class="admin-nav-link" href="/admin">Create/edit assessments</a>
+            <a class="admin-nav-link" href="/admin/assessors">View assessor links</a>
+            <a class="admin-nav-link admin-nav-link-active" href="/admin/scores">Review scores and publish to Folio</a>
+            <a class="admin-nav-link" href="/admin/scores/summary">Assessment summary</a>
+          </nav>
+        </div>
+      </section>
 
-        <form method="POST" action="{{ url_for('admin_scores') }}" id="review-scores">
-          <div class="mb-3 hide-from-print-summary">
-            <label for="assessment">Select Assessment:</label>
-            <select class="form-select" name="assessment_id" id="assessment" required>
+      <section class="mt-6 admin-card p-6 sm:p-8">
+        <div class="max-w-4xl">
+          <p class="admin-kicker">Review and Publish</p>
+          <h1 class="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">Review scores and publish to Folio</h1>
+        </div>
+
+        <form method="POST" action="{{ url_for('admin_scores') }}" id="review-scores" class="mt-8 max-w-3xl space-y-5">
+          <div class="hide-from-print-summary">
+            <label for="assessment" class="mb-2 block text-sm font-medium text-slate-700">Select Assessment</label>
+            <select class="admin-select" name="assessment_id" id="assessment" required>
               <option value="">--Select an assessment--</option>
               {% for assessment in assessments %}
-                <option value="{{ assessment.id }}"
-                  {% if selected_assessment and assessment.id == selected_assessment.id %}selected{% endif %}>
-                  {{ assessment.name }}
-                </option>
+              <option value="{{ assessment.id }}" {% if selected_assessment and assessment.id == selected_assessment.id %}selected{% endif %}>
+                {{ assessment.name }}
+              </option>
               {% endfor %}
             </select>
           </div>
-          <div class="mb-3  hide-from-print-summary">
-            <button type="submit" class="btn btn-primary"><i class="bi bi-file-earmark-arrow-down"></i> Load assessment scores</button>
+          <div class="hide-from-print-summary">
+            <button type="submit" class="admin-btn">Load assessment scores</button>
           </div>
         </form>
 
-      {% if selected_assessment %}
-
-        <hr class="hide-from-print-summary">
-
-        <p class="hide-from-print-summary">
-          <i class="bi bi-arrow-down"></i> <a href="#outcome">Skip to outcome assessment table</a>
-           | 
-          <i class="bi bi-arrow-down"></i> <a href="#audit">Skip to individual assessor's scores</a> 
-        </p>
-
-        <hr>
-
-        <div id="publish-content">
-        <h2 class="mt-5"><i class="bi bi-clipboard2-data"></i> Executive Summary: {{ selected_assessment.name }}</h2>
-        <!-- Wrap the table in a div with an id -->
-        <div id="scores-table">
-          <table class="table table-striped mb-5">
-            <thead>
-              <tr>
-                <th>Application Code</th>
-                <th>Rank</th>
-                <th>Final Score</th>
-                <th>Number of Criteria Completed</th>
-                <th>Number of assessors</th>                
-              </tr>
-            </thead>
-            <tbody class="table-group-divider">
-              {% for group in grouped_scores %}
-              <tr>
-                <td>{{ group.application.code }}</td>
-                <td>{{ group.rank }}</td>
-                <td>{{ group.final_score | round(2) }} / 100</td>
-                <td>{{ group.count }}</td>
-                <td>{{ group.assessors | length }}</td>                
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-
-        <h2 class="mt-5">
-          <a name="outcome"></a>
-          <i class="bi bi-calendar-check"></i> 
-          Outcome Summary: {{ selected_assessment.name }}
-          <button id="copyTableBtn" class="float-end btn btn-outline-secondary btn-sm mb-3">
-            📋 Copy table for XLSX
-          </button>
-        </h2>
-        <form method="POST" action="{{ url_for('admin_scores') }}">
-          <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
-          <div id="folio-table">
-            <table class="table table-striped mb-5">
-              <thead>
-                <tr>
-                  <th>No.</th>
-                  <th>Provider name</th>
-                  <th>ABN</th>
-                  <th>Funding requested</th>
-                  <th>Rank</th>
-                  <th>Final score</th>
-                  <th>Funding granted</th>
-                  <th>Successful?</th>
-                </tr>
-              </thead>
-              <tbody class="table-group-divider">
-                {% for group in grouped_scores %}
-                <tr>
-                  <td>{{ group.application.code | clean_code_no }}</td>
-                  <td>{{ group.application.code | clean_code }}</td>
-                  <td></td>
-
-                  <!-- funding_requested input -->
-                  <td>
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="funding_requested-{{ group.application.id }}"
-                      class="form-control form-control-sm"
-                      value="{{ group.application.funding_requested or '' }}"
-                    >
-                  </td>
-
-                  <td>{{ group.rank }}</td>
-
-                  <td>{{ group.final_score | round(2) }}</td>
-
-                  <!-- funding_given input -->
-                  <td>
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="funding_given-{{ group.application.id }}"
-                      class="form-control form-control-sm"
-                      value="{{ group.application.funding_given or '' }}"
-                    >
-                  </td>
-
-                  <!-- successful checkbox -->
-                  <td class="text-center">
-                    <input
-                      type="checkbox"
-                      name="successful-{{ group.application.id }}"
-                      {% if group.application.successful %}checked{% endif %}
-                    >
-                  </td>
-                </tr>
-                {% endfor %}
-                <tr class="table-secondary">
-                  <td colspan="3"><strong>Running Totals:</strong></td>
-                  <!-- total requested -->
-                  <td><strong id="totalRequested">0.00</strong></td>
-                  <td></td>
-                  <td></td>
-                  <!-- total given -->
-                  <td><strong id="totalGiven">0.00</strong></td>
-                  <td>
-                    <button
-                      type="submit"
-                      value="1"
-                      name="publish"
-                      class="btn btn-success float-end"
-                    >
-                      Publish outcomes
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </form>
-
-        
-          <h2 class="mt-4 hide-from-print-summary">
-            <a name="audit"></a>
-            <i class="bi bi-people"></i> Individual Assessor's Scores
-            <div class="input-group data-filter float-end">
-                <span class="input-group-text">&#x1F50E;&#xFE0E;</span>
-                <input type="text" class="form-control" placeholder="Filter entries" data-filter-for="auditScores">
+        {% if selected_assessment %}
+          <div class="mt-10 border-t border-slate-200 pt-8">
+            <div class="hide-from-print-summary text-sm">
+              <a href="#outcome">Skip to outcome assessment table</a>
+              <span class="mx-2 text-slate-300">|</span>
+              <a href="#audit">Skip to individual assessor's scores</a>
             </div>
-          </h2>
-          <table class="table table-bordered hide-from-print-summary" id="auditScores">
-            <thead>
-              <tr>
-                <th>Assessor</th>
-                <th>Application Code</th>
-                <th>Criteria</th>
-                <th>Score</th>
-                <th>Weighted Score</th>
-                <th>Comment</th>
-                <th>Submission Date</th>
-                <th>Edit</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for score, assessor, application, criteria, weighted in detailed_scores %}
-                <tr>
-                  <form method="POST" action="{{ url_for('edit_score', score_id=score.id) }}">
-                    <td><a name="auditScores-{{ score.id }}"></a>{{ assessor.name }}</td>
-                    <td>{{ application.code }}</td>
-                    <td>{{ criteria.description }}</td>
-                    <td>
-                      <input type="number" name="score" min="0" max="10" step="1"
-                            class="form-control" value="{{ score.score }}">
-                    </td>
-                    <td>{{ weighted | round(2) * 10 }}</td>
-                    <td>
-                      <input 
-                        type="text" 
-                        name="comment" 
-                        class="form-control"
-                        value="{{ score.comment }}"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="top"
-                        title="{{ score.comment }}"
-                      >
-                    </td>
-                    <td>{{ score.created_at.strftime("%Y-%m-%d | %H:%M") if score.created_at else '' }}</td>
-                    <td>
-                      <button type="submit" class="btn btn-sm btn-primary">Update</button>
-                    </td>
-                  </form>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        </div>
 
-        
-        <h2 class="hide-from-print-summary">Publish Scores</h2>
-        <p class="hide-from-print-summary">This will publish the results of the assessment directly to Folio.</p>
+            <div id="publish-content" class="mt-8 admin-stack">
+              <section>
+                <p class="admin-kicker">Executive Summary</p>
+                <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ selected_assessment.name }}</h2>
+                <div id="scores-table" class="admin-table-wrap mt-6">
+                  <table class="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Application Code</th>
+                        <th>Rank</th>
+                        <th>Final Score</th>
+                        <th>Number of Criteria Completed</th>
+                        <th>Number of assessors</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for group in grouped_scores %}
+                      <tr>
+                        <td class="font-medium text-slate-900">{{ group.application.code }}</td>
+                        <td>{{ group.rank }}</td>
+                        <td>{{ group.final_score | round(2) }} / 100</td>
+                        <td>{{ group.count }}</td>
+                        <td>{{ group.assessors | length }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
 
-        <form method="POST" action="{{ url_for('publish_scores') }}" id="publish-form" class="form-floating">
-          <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
+              <section>
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <a id="outcome"></a>
+                    <p class="admin-kicker">Outcome Summary</p>
+                    <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ selected_assessment.name }}</h2>
+                  </div>
+                  <button id="copyTableBtn" class="admin-btn admin-btn-secondary hide-from-print-summary">Copy table for XLSX</button>
+                </div>
 
-          <!-- Report type -->
-          <div class="mb-3 hide-from-print-summary">
-            <label for="report_type" class="form-label">Report type:</label>
-            <select name="report_type" id="report_type" class="form-select" required>
-              <option value="grant" selected>Grant Report</option>
-              <option value="procurement">Procurement Report</option>
-            </select>
+                <form method="POST" action="{{ url_for('admin_scores') }}" class="mt-6">
+                  <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
+                  <div id="folio-table" class="admin-table-wrap">
+                    <table class="admin-table">
+                      <thead>
+                        <tr>
+                          <th>No.</th>
+                          <th>Provider name</th>
+                          <th>ABN</th>
+                          <th>Funding requested</th>
+                          <th>Rank</th>
+                          <th>Final score</th>
+                          <th>Funding granted</th>
+                          <th>Successful?</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for group in grouped_scores %}
+                        <tr>
+                          <td>{{ group.application.code | clean_code_no }}</td>
+                          <td>{{ group.application.code | clean_code }}</td>
+                          <td></td>
+                          <td>
+                            <input
+                              type="number"
+                              step="0.01"
+                              name="funding_requested-{{ group.application.id }}"
+                              class="admin-input"
+                              value="{{ group.application.funding_requested or '' }}"
+                            >
+                          </td>
+                          <td>{{ group.rank }}</td>
+                          <td>{{ group.final_score | round(2) }}</td>
+                          <td>
+                            <input
+                              type="number"
+                              step="0.01"
+                              name="funding_given-{{ group.application.id }}"
+                              class="admin-input"
+                              value="{{ group.application.funding_given or '' }}"
+                            >
+                          </td>
+                          <td class="text-center">
+                            <input
+                              type="checkbox"
+                              name="successful-{{ group.application.id }}"
+                              {% if group.application.successful %}checked{% endif %}
+                            >
+                          </td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="admin-table-summary">
+                          <td colspan="3"><strong>Running Totals:</strong></td>
+                          <td><strong id="totalRequested">0.00</strong></td>
+                          <td></td>
+                          <td></td>
+                          <td><strong id="totalGiven">0.00</strong></td>
+                          <td class="text-right">
+                            <button type="submit" value="1" name="publish" class="admin-btn admin-btn-success hide-from-print-summary">Publish outcomes</button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </form>
+              </section>
+
+              <section class="hide-from-print-summary">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <a id="audit"></a>
+                    <p class="admin-kicker">Audit Trail</p>
+                    <h2 class="mt-2 text-2xl font-semibold text-slate-900">Individual Assessor's Scores</h2>
+                  </div>
+                  <div class="w-full max-w-xs">
+                    <label class="sr-only" for="auditFilter">Filter entries</label>
+                    <input id="auditFilter" type="text" class="admin-input" placeholder="Filter entries" data-filter-for="auditScores">
+                  </div>
+                </div>
+
+                <div class="admin-table-wrap mt-6">
+                  <table class="admin-table" id="auditScores">
+                    <thead>
+                      <tr>
+                        <th>Assessor</th>
+                        <th>Application Code</th>
+                        <th>Criteria</th>
+                        <th>Score</th>
+                        <th>Weighted Score</th>
+                        <th>Comment</th>
+                        <th>Submission Date</th>
+                        <th>Edit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for score, assessor, application, criteria, weighted in detailed_scores %}
+                      <tr>
+                        <form method="POST" action="{{ url_for('edit_score', score_id=score.id) }}">
+                          <td><a name="auditScores-{{ score.id }}"></a>{{ assessor.name }}</td>
+                          <td>{{ application.code }}</td>
+                          <td>{{ criteria.description }}</td>
+                          <td>
+                            <input type="number" name="score" min="0" max="10" step="1" class="admin-input" value="{{ score.score }}">
+                          </td>
+                          <td>{{ weighted | round(2) * 10 }}</td>
+                          <td>
+                            <input type="text" name="comment" class="admin-input" value="{{ score.comment }}" title="{{ score.comment }}">
+                          </td>
+                          <td>{{ score.created_at.strftime("%Y-%m-%d | %H:%M") if score.created_at else '' }}</td>
+                          <td>
+                            <button type="submit" class="admin-btn">Update</button>
+                          </td>
+                        </form>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+
+            <section class="mt-10 hide-from-print-summary">
+              <p class="admin-kicker">Publish Scores</p>
+              <h2 class="mt-2 text-2xl font-semibold text-slate-900">Publish to Folio</h2>
+              <p class="mt-3 text-sm text-slate-600">This will publish the results of the assessment directly to Folio.</p>
+
+              <form method="POST" action="{{ url_for('publish_scores') }}" id="publish-form" class="mt-6 max-w-3xl space-y-5">
+                <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
+
+                <div>
+                  <label for="report_type" class="mb-2 block text-sm font-medium text-slate-700">Report type</label>
+                  <select name="report_type" id="report_type" class="admin-select" required>
+                    <option value="grant" selected>Grant Report</option>
+                    <option value="procurement">Procurement Report</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label for="form_key" class="mb-2 block text-sm font-medium text-slate-700">Enter Folio Key</label>
+                  <input type="text" class="admin-input" name="form_key" id="form_key" value="GRPR-XX" required>
+                </div>
+
+                <div id="roundWrap">
+                  <label for="round" class="mb-2 block text-sm font-medium text-slate-700">Select Round</label>
+                  <select name="round" id="round" class="admin-select">
+                    <option value="MDBGaWVsZC0yODQzNA">Round 1</option>
+                    <option value="MDBGaWVsZC0yODQ2OQ">Round 2</option>
+                    <option value="MDBGaWVsZC0yODQ3MQ">Round 3</option>
+                    <option value="MDBGaWVsZC0yODQ3Mw">Round 4</option>
+                    <option value="MDBGaWVsZC0yODQ3NQ">Round 5</option>
+                  </select>
+                </div>
+
+                <input type="hidden" name="table_html" id="table_html">
+                <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
+
+                <div>
+                  <input type="submit" value="Publish Scores" class="admin-btn cursor-pointer">
+                </div>
+              </form>
+            </section>
           </div>
+        {% endif %}
+      </section>
+    </main>
 
-          <!-- Folio Key -->
-          <div class="mb-3 hide-from-print-summary">
-            <label for="form_key" class="form-label">Enter Folio Key:</label>
-            <input type="text" class="form-control" name="form_key" id="form_key" value="GRPR-XX" required>
-          </div>
+    <script src="/static/dynamic-tables.js"></script>
+    <script>
+      document.getElementById('publish-form')?.addEventListener('submit', function() {
+        var tableHtml = document.getElementById('scores-table')?.innerHTML || '';
+        document.getElementById('table_html').value = tableHtml;
+      });
 
-          <!-- Round (Grant flow only) -->
-          <div class="mb-3 hide-from-print-summary" id="roundWrap">
-            <label for="round" class="form-label">Select Round:</label>
-            <select name="round" id="round" class="form-select">
-              <option value="MDBGaWVsZC0yODQzNA">Round 1</option>
-              <option value="MDBGaWVsZC0yODQ2OQ">Round 2</option>
-              <option value="MDBGaWVsZC0yODQ3MQ">Round 3</option>
-              <option value="MDBGaWVsZC0yODQ3Mw">Round 4</option>
-              <option value="MDBGaWVsZC0yODQ3NQ">Round 5</option>
-            </select>
-          </div>
+      document.getElementById('copyTableBtn')?.addEventListener('click', async event => {
+        const copyButton = event.currentTarget;
+        const table = document.querySelector('#folio-table table');
+        if (!table) return;
 
-          <!-- Hidden field for the combined HTML (used for both flows) -->
-          <input type="hidden" name="table_html" id="table_html">
-          <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
+        const tsv = Array.from(table.rows).map(row =>
+          Array.from(row.cells).map(cell => cell.innerText.trim()).join('\t')
+        ).join('\n');
 
+        try {
+          await navigator.clipboard.writeText(tsv);
+          const origText = copyButton.innerText;
+          copyButton.innerText = 'Copied!';
+          setTimeout(() => copyButton.innerText = origText, 1500);
+        } catch (err) {
+          alert('Copy failed: ' + err);
+        }
+      });
 
-          <div class="mb-3 hide-from-print-summary">
-            <input type="submit" value="Publish Scores" class="btn btn-primary">
-          </div>
-        </form>
-        <hr>
-      
-    {% endif %}
-    </div>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-  <script src="/static/dynamic-tables.js"></script>
-        <script>
-        document.getElementById('publish-form').addEventListener('submit', function(e) {
-            var tableHtml = document.getElementById('scores-table').innerHTML;
-            document.getElementById('table_html').value = tableHtml;
+      function formatCurrency(num) {
+        return '$' + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      }
+
+      function updateTotals() {
+        let totalReq = 0;
+        let totalGiven = 0;
+        document.querySelectorAll('input[name^="funding_requested-"]').forEach(el => {
+          const v = parseFloat(el.value);
+          if (!isNaN(v)) totalReq += v;
         });
-        document.getElementById('copyTableBtn').addEventListener('click', async () => {
-          const table = document.querySelector('#folio-table table');
-          if (!table) return;
+        document.querySelectorAll('input[name^="funding_given-"]').forEach(el => {
+          const v = parseFloat(el.value);
+          if (!isNaN(v)) totalGiven += v;
+        });
 
-          // Build a tab-separated string: each row -> TSV line
-          const tsv = Array.from(table.rows).map(row =>
-            Array.from(row.cells).map(cell => cell.innerText.trim()).join('\t')
-          ).join('\n');
+        const totalRequested = document.getElementById('totalRequested');
+        const totalGivenEl = document.getElementById('totalGiven');
+        if (totalRequested) totalRequested.textContent = formatCurrency(totalReq);
+        if (totalGivenEl) totalGivenEl.textContent = formatCurrency(totalGiven);
+      }
 
-          try {
-            await navigator.clipboard.writeText(tsv);
-            // Optional: give feedback
-            const origText = copyTableBtn.innerText;
-            copyTableBtn.innerText = 'Copied!';
-            setTimeout(() => copyTableBtn.innerText = origText, 1500);
-          } catch (err) {
-            alert('Copy failed: ' + err);
+      document.querySelectorAll('input[name^="funding_requested-"], input[name^="funding_given-"]').forEach(el => {
+        el.addEventListener('input', updateTotals);
+      });
+
+      document.addEventListener('DOMContentLoaded', updateTotals);
+
+      document.addEventListener('DOMContentLoaded', function() {
+        const sel = document.getElementById('report_type');
+        const roundWrap = document.getElementById('roundWrap');
+        const round = document.getElementById('round');
+        if (!sel || !roundWrap || !round) return;
+
+        function toggle() {
+          roundWrap.style.display = (sel.value === 'grant') ? '' : 'none';
+          round.toggleAttribute('required', sel.value === 'grant');
+        }
+
+        sel.addEventListener('change', toggle);
+        toggle();
+      });
+
+      function formatNumberLike(n) {
+        if (n === '' || n === null || n === undefined) return '';
+        const num = Number(n);
+        return Number.isFinite(num) ? num.toString() : String(n);
+      }
+
+      function sanitizeOutcomeTable() {
+        const table = document.querySelector('#folio-table table');
+        if (!table) return '';
+
+        const clone = table.cloneNode(true);
+        clone.querySelectorAll('.hide-from-print-summary').forEach(el => el.remove());
+        clone.querySelectorAll('button').forEach(el => el.remove());
+
+        clone.querySelectorAll('input').forEach(inp => {
+          let text = '';
+          const type = (inp.getAttribute('type') || 'text').toLowerCase();
+
+          if (type === 'checkbox' || type === 'radio') {
+            text = inp.checked ? 'Yes' : 'No';
+          } else if (type === 'number') {
+            text = formatNumberLike(inp.value);
+          } else {
+            text = inp.value || '';
           }
-        });
-        document.addEventListener('DOMContentLoaded', function () {
-          var tooltipTriggerList = [].slice.call(
-            document.querySelectorAll('[data-bs-toggle="tooltip"]')
-          );
-          tooltipTriggerList.forEach(function (el) {
-            new bootstrap.Tooltip(el);
-          });
+
+          const span = document.createElement('span');
+          span.textContent = text;
+          inp.replaceWith(span);
         });
 
-        function formatCurrency(num) {
-          // always show two decimals, then insert commas every three digits
-          return '$' + num
-            .toFixed(2)
-            .replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        }
-
-        function updateTotals() {
-          let totalReq = 0, totalGiven = 0;
-          document.querySelectorAll('input[name^="funding_requested-"]').forEach(el => {
-            const v = parseFloat(el.value);
-            if (!isNaN(v)) totalReq += v;
-          });
-          document.querySelectorAll('input[name^="funding_given-"]').forEach(el => {
-            const v = parseFloat(el.value);
-            if (!isNaN(v)) totalGiven += v;
-          });
-
-          document.getElementById('totalRequested').textContent = formatCurrency(totalReq);
-          document.getElementById('totalGiven').   textContent = formatCurrency(totalGiven);
-        }
-
-        // Wire it up: recalc on any change
-        document.querySelectorAll(
-          'input[name^="funding_requested-"], input[name^="funding_given-"]'
-        ).forEach(el => {
-          el.addEventListener('input', updateTotals);
+        clone.querySelectorAll('textarea').forEach(ta => {
+          const span = document.createElement('span');
+          span.innerHTML = (ta.value || '').replace(/\n/g, '<br>');
+          ta.replaceWith(span);
         });
 
-        // Initialize once on page load
-        document.addEventListener('DOMContentLoaded', updateTotals);
-
-        // Toggle Round select visibility by report type
-        document.addEventListener('DOMContentLoaded', function(){
-          const sel = document.getElementById('report_type');
-          const roundWrap = document.getElementById('roundWrap');
-          function toggle() {
-            roundWrap.style.display = (sel.value === 'grant') ? '' : 'none';
-            // If procurement, remove 'required' on round to avoid validation hiccups
-            document.getElementById('round').toggleAttribute('required', sel.value === 'grant');
-          }
-          sel.addEventListener('change', toggle);
-          toggle();
+        clone.querySelectorAll('select').forEach(sel => {
+          const span = document.createElement('span');
+          const opt = sel.selectedOptions && sel.selectedOptions[0];
+          span.textContent = opt ? (opt.textContent || opt.value) : (sel.value || '');
+          sel.replaceWith(span);
         });
 
-        // Format helper (optional). Adjust toFixed or add currency formatting if you like.
-        function formatNumberLike(n) {
-          if (n === '' || n === null || n === undefined) return '';
-          const num = Number(n);
-          return Number.isFinite(num) ? num.toString() : String(n);
-        }
+        clone.querySelectorAll('script').forEach(s => s.remove());
+        return clone.outerHTML;
+      }
 
-        function sanitizeOutcomeTable() {
-          // Grab the Outcome table inside #folio-table
-          const table = document.querySelector('#folio-table table');
-          if (!table) return '';
+      document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('publish-form');
+        const hidden = document.getElementById('table_html');
+        if (!form || !hidden) return;
 
-          // Work on a deep clone so we don't touch the live DOM
-          const clone = table.cloneNode(true);
-
-          // Remove anything explicitly hidden for print/summary
-          clone.querySelectorAll('.hide-from-print-summary').forEach(el => el.remove());
-
-          // Remove any buttons inside the table (e.g., copy/publish/etc.)
-          clone.querySelectorAll('button').forEach(el => el.remove());
-
-          // Replace inputs, textareas, selects with their displayed values
-          // INPUTS
-          clone.querySelectorAll('input').forEach(inp => {
-            const td = inp.closest('td') || inp.parentElement;
-            if (!td) { inp.remove(); return; }
-
-            let text = '';
-            const type = (inp.getAttribute('type') || 'text').toLowerCase();
-
-            if (type === 'checkbox' || type === 'radio') {
-              text = inp.checked ? 'Yes' : 'No';
-            } else if (type === 'number') {
-              text = formatNumberLike(inp.value);
-            } else {
-              text = inp.value || '';
-            }
-
-            // Replace the input with a text node (or span)
-            const span = document.createElement('span');
-            span.textContent = text;
-            inp.replaceWith(span);
-          });
-
-          // TEXTAREAS
-          clone.querySelectorAll('textarea').forEach(ta => {
-            const td = ta.closest('td') || ta.parentElement;
-            if (!td) { ta.remove(); return; }
-            const span = document.createElement('span');
-            // Preserve line breaks as <br> for readability
-            span.innerHTML = (ta.value || '').replace(/\n/g, '<br>');
-            ta.replaceWith(span);
-          });
-
-          // SELECTS
-          clone.querySelectorAll('select').forEach(sel => {
-            const td = sel.closest('td') || sel.parentElement;
-            if (!td) { sel.remove(); return; }
-            const span = document.createElement('span');
-            const opt = sel.selectedOptions && sel.selectedOptions[0];
-            span.textContent = opt ? (opt.textContent || opt.value) : (sel.value || '');
-            sel.replaceWith(span);
-          });
-
-          // Extra safety: strip any <script> tags if present
-          clone.querySelectorAll('script').forEach(s => s.remove());
-
-          return clone.outerHTML;
-        }
-
-        // Hook into your existing publish form
-        document.addEventListener('DOMContentLoaded', function(){
-          const form = document.getElementById('publish-form');
-          const hidden = document.getElementById('table_html');
-          if (!form || !hidden) return;
-
-          form.addEventListener('submit', function(){
-            const cleaned = sanitizeOutcomeTable();
-            hidden.value = cleaned; // this is what goes into {json.dumps(table_html)}
-          });
+        form.addEventListener('submit', function() {
+          const cleaned = sanitizeOutcomeTable();
+          hidden.value = cleaned;
         });
-
-      </script>
-</body>
+      });
+    </script>
+  </body>
 </html>

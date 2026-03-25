@@ -1,75 +1,84 @@
 @media print {
-  /* 1) Force all accordions open */
-
-  .accordion-body table td,
-  .accordion-body table th,
-  .accordion-body .comments-assessor {
-    font-size: 0.8em;
+  body {
+    background: #ffffff !important;
   }
 
-  .accordion-header h2,
-  .accordion-header h3,
-  .accordion-body h4 {
-    font-size: 1em;
-  }
-
-  .accordion-collapse.collapse {
+  .accordion-panel {
     display: block !important;
-    height: auto    !important;
     visibility: visible !important;
   }
 
-  /* 2) Strip out the accordion toggle UI */
+  .admin-table-wrap {
+    overflow: visible !important;
+    border: none !important;
+  }
+
+  .admin-table {
+    width: 100% !important;
+  }
+
   .accordion-button {
     background: none !important;
-    border: none     !important;
+    color: #000000 !important;
     box-shadow: none !important;
-    pointer-events: none !important;
-    color: black;
+    page-break-after: avoid;
   }
-  .accordion-button::after {
+
+  .accordion-chevron,
+  .modal-shell,
+  .hide-from-print-summary {
     display: none !important;
   }
 
-  .accordion-header {
-    color: black;
-  }
-
-  .accordion-body {
-    overflow: visible !important;
-  }
-
-  /* 3) Turn your form inputs into plain text */
-  input.form-control,
-  textarea.form-control {
-    border: none        !important;
+  .accordion-item,
+  .accordion-panel,
+  .admin-card,
+  .rounded-\[1\.5rem\],
+  .rounded-\[1\.75rem\],
+  .rounded-\[2rem\] {
+    border: none !important;
+    box-shadow: none !important;
     background: transparent !important;
-    box-shadow: none    !important;
+  }
+
+  input,
+  textarea {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #000000 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  textarea {
+    min-height: 80px;
     overflow: visible !important;
   }
 
-  textarea.form-control {
-    min-height: 80px;
+  select,
+  .admin-btn,
+  .admin-btn-secondary,
+  .admin-btn-success,
+  .admin-btn-warning {
+    border: none !important;
+    box-shadow: none !important;
   }
 
-  /* 4) Hide anything that isn’t content */
-  .form-text,   /* bootstrap’s small help text */
-  .hide-from-print-summary
-  {
+  #scoringCol,
+  #scoreLayout,
+  main,
+  section,
+  article {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .hide-from-print-summary {
     display: none !important;
   }
-
-  .col-md-5 {
-    /* for flex-based grid (Bootstrap 4/5) */
-    flex: 0 0 100% !important;
-    max-width: 100%  !important;
-    width: 100%      !important;
-  }
-
-  /* page break element*/
 
   .report-page-break {
-      page-break-before: always;
+    page-break-before: always;
   }
-
 }

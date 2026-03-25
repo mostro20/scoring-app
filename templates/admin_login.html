@@ -3,37 +3,107 @@
   <head>
     <meta charset="utf-8">
     <meta name="robots" content="noindex">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Administration access</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" type="text/css" href="/static/styles.css" /> 
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#eef9f8',
+                100: '#d5efed',
+                200: '#addfda',
+                300: '#76c7c1',
+                400: '#3daaa4',
+                500: '#008480',
+                600: '#0b6a6b',
+                700: '#0c5456',
+                800: '#0d4346',
+                900: '#072c32'
+              },
+              ink: '#102226',
+              mist: '#f4f7f6'
+            },
+            boxShadow: {
+              panel: '0 24px 60px rgba(7, 44, 50, 0.18)'
+            }
+          }
+        }
+      };
+    </script>
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
   </head>
-  <body>
-    <div class="container">
-        <div class="row">
-            <h1>Admin Login</h1>
-            <form method="post">
-                <label for="keyphrase" class="form-label">Keyphrase:</label>
-                <input type="password" name="keyphrase" class="form-control" id="keyphrase" placeholder="Enter keyphrase" aria-describedby="passwordHelpBlock" required>
-                <div id="passwordHelpBlock" class="form-text">
+  <body class="min-h-screen bg-mist text-ink antialiased">
+    <main class="relative isolate overflow-hidden">
+      <div class="absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(circle_at_top,_rgba(0,132,128,0.18),_transparent_55%)]"></div>
+      <div class="mx-auto flex min-h-screen max-w-6xl items-center px-4 py-12 sm:px-6 lg:px-8">
+        <div class="grid w-full gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+          <section class="rounded-[2rem] border border-white/60 bg-white/80 p-8 shadow-panel backdrop-blur sm:p-10">
+            <div class="inline-flex items-center gap-3 rounded-full border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-800">
+              <span class="h-2.5 w-2.5 rounded-full bg-brand-500"></span>
+              Admin Console
+            </div>
+            <h1 class="mt-6 text-4xl font-semibold tracking-tight text-ink sm:text-5xl">Administration access</h1>
+            <p class="mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+              Sign in to manage assessments, review panel activity, and publish outcomes to Folio.
+            </p>
+            <div class="mt-10 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
+              <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                Admin sessions stay active for 24 hours after successful login.
+              </div>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                CAPTCHA verification is still required before access is granted.
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-[2rem] bg-ink p-1 shadow-panel">
+            <div class="rounded-[calc(2rem-4px)] bg-white p-8 sm:p-10">
+              <p class="admin-kicker">Secure Sign-In</p>
+              <h2 class="mt-3 text-2xl font-semibold text-slate-900">Admin Login</h2>
+
+              <form method="post" class="mt-8 space-y-6">
+                <div>
+                  <label for="keyphrase" class="mb-2 block text-sm font-medium text-slate-700">Keyphrase</label>
+                  <input
+                    type="password"
+                    name="keyphrase"
+                    id="keyphrase"
+                    placeholder="Enter keyphrase"
+                    aria-describedby="passwordHelpBlock"
+                    required
+                    class="admin-input"
+                  >
+                  <div id="passwordHelpBlock" class="mt-3 text-sm leading-6 text-slate-500">
                     Enter the HNC assessor admin keyphrase. Login will be valid for 24 hours.
+                  </div>
                 </div>
-                <br>
-                {{ captcha_html(captcha)|safe }}
-                <a class="captcha-text small" href="" onclick="this.closest('form').reset(); location.reload(); return false;">New image</a>
-                
-                <button class="btn btn-primary mb-3 mt-3" type="submit">Login</button>
-            </form>
-            {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <ul>
-                {% for message in messages %}
-                <li>{{ message }}</li>
-                {% endfor %}
-                </ul>
-            {% endif %}
-            {% endwith %}
+
+                <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                  {{ captcha_html(captcha)|safe }}
+                  <a class="captcha-text mt-3 inline-flex text-sm font-medium text-brand-700" href="" onclick="this.closest('form').reset(); location.reload(); return false;">Load a new image</a>
+                </div>
+
+                <button class="admin-btn w-full" type="submit">Login</button>
+              </form>
+
+              {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                <div class="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  <ul class="space-y-1">
+                  {% for message in messages %}
+                    <li>{{ message }}</li>
+                  {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+              {% endwith %}
+            </div>
+          </section>
         </div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+      </div>
+    </main>
   </body>
 </html>
