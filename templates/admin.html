@@ -4,164 +4,200 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Administration dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" type="text/css" href="/static/styles.css" /> 
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#eef9f8',
+                100: '#d5efed',
+                200: '#addfda',
+                300: '#76c7c1',
+                400: '#3daaa4',
+                500: '#008480',
+                600: '#0b6a6b',
+                700: '#0c5456',
+                800: '#0d4346',
+                900: '#072c32'
+              },
+              ink: '#102226',
+              mist: '#f4f7f6'
+            },
+            boxShadow: {
+              panel: '0 24px 60px rgba(7, 44, 50, 0.18)'
+            }
+          }
+        }
+      };
+    </script>
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
   </head>
-  <body>
-    <div class="container">
-      <nav class="navbar navbar-expand-lg bg-body-tertiary">
-        <div class="container-fluid">
-          <img src="/static/HNC-logo-lockup-color.svg" alt="Logo" width="250" class="d-inline-block align-text-top">
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-          </button>
-          <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-            <div class="navbar-nav">
-              <a class="nav-link active" aria-current="page" href="/admin">Create/edit assessments</a>
-              <a class="nav-link" href="/admin/assessors">View assessor links</a>
-              <a class="nav-link" href="/admin/scores">Review scores and publish to Folio</a>
-              <a class="nav-link" href="/admin/scores/summary">Assessment summary</a>
+  <body class="min-h-screen bg-mist text-ink antialiased">
+    <div class="absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(circle_at_top,_rgba(0,132,128,0.16),_transparent_55%)]"></div>
+    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <section class="admin-card p-5 sm:p-6">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div class="flex items-center gap-4">
+            <img src="/static/HNC-logo-lockup-color.svg" alt="Logo" class="h-12 w-auto sm:h-14">
+            <div>
+              <p class="admin-kicker">Admin Console</p>
+              <p class="mt-1 text-sm text-slate-500">Assessment creation and editing workspace</p>
             </div>
           </div>
+          <nav class="flex flex-wrap gap-2">
+            <a class="admin-nav-link admin-nav-link-active" aria-current="page" href="/admin">Create/edit assessments</a>
+            <a class="admin-nav-link" href="/admin/assessors">View assessor links</a>
+            <a class="admin-nav-link" href="/admin/scores">Review scores and publish to Folio</a>
+            <a class="admin-nav-link" href="/admin/scores/summary">Assessment summary</a>
+          </nav>
         </div>
-      </nav>
-      
-      <h1>Create / edit assessments</h1>
-      <!-- 1) selector form (GET) -->
-      <form method="GET" action="{{ url_for('admin') }}" class="mb-4">
-        <div class="mb-3">
-          <label for="assessment">Select Assessment to edit:</label>
-          <select id="assessment" name="assessment_id" class="form-select">
-            <option value="">-- Edit existing assessment --</option>
-            {% for a in assessments %}
-            <option value="{{ a.id }}"
-              {% if selected_assessment and a.id == selected_assessment.id %}selected{% endif %}>
-              {{ a.name }}
-            </option>
-            {% endfor %}
-          </select>
-          <p class="small text-muted">Leave blank to create a new assessment</p>
-        </div>
-        <button class="btn btn-secondary">Load</button>
-      </form>
+      </section>
 
-      <!-- 2) create / update form -->
-      <form method="POST"
-            action="{{ url_for('admin') }}"
-            enctype="multipart/form-data">
-
-        {# pass the id when editing #}
-        {% if selected_assessment %}
-        <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
-        {% endif %}
-
-        <div class="mb-3">
-          <label for="assessment_name" class="form-label">Evaluation name</label>
-          <input
-            type="text"
-            id="assessment_name"
-            name="assessment_name"
-            class="form-control"
-            required
-            value="{{ selected_assessment.name if selected_assessment else '' }}"
-          >
+      <section class="mt-6 admin-card p-6 sm:p-8">
+        <div class="max-w-4xl">
+          <p class="admin-kicker">Assessment Setup</p>
+          <h1 class="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">Create / edit assessments</h1>
+          <p class="mt-3 text-sm leading-6 text-slate-600 sm:text-base">
+            Load an existing assessment to update it, or leave the selector blank to create a new one from scratch.
+          </p>
         </div>
 
-        <div class="mb-3">
-          <label for="applications" class="form-label">
-            Application code (one per line)<br>
-            <em>
-              <strong>IMPORTANT</strong> include the leading number and colon "1 -", "2 -" at the start of each application so 
-              numbering can be used in the process. Do this even if there is only one appplication. (e.g. <code>1 - First response</code> || <code>2 - Next application</code> and so on)
-            </em>
-          </label>
-          <textarea
-            id="applications"
-            name="applications"
-            class="form-control"
-            rows="5"
-          >{{ applications_text }}</textarea>
-        </div>
+        <form method="GET" action="{{ url_for('admin') }}" class="mt-8 max-w-3xl space-y-5">
+          <div>
+            <label for="assessment" class="mb-2 block text-sm font-medium text-slate-700">Select Assessment to edit</label>
+            <select id="assessment" name="assessment_id" class="admin-select">
+              <option value="">-- Edit existing assessment --</option>
+              {% for a in assessments %}
+              <option value="{{ a.id }}" {% if selected_assessment and a.id == selected_assessment.id %}selected{% endif %}>
+                {{ a.name }}
+              </option>
+              {% endfor %}
+            </select>
+            <p class="mt-3 text-sm text-slate-500">Leave blank to create a new assessment.</p>
+          </div>
+          <div>
+            <button class="admin-btn admin-btn-secondary" type="submit">Load</button>
+          </div>
+        </form>
 
-        <div class="mb-3">
-          <label for="criteria" class="form-label">
-            Criteria (description|weight, one per line)
-          </label>
-          <textarea
-            id="criteria"
-            name="criteria"
-            class="form-control"
-            rows="5"
-          >{{ criteria_text }}</textarea>
-        </div>
-
-        <div class="mb-3">
-          <label for="pdf_file" class="form-label">Upload Scoring Guidance or other supporting documentation</label>
-          <input type="file" id="pdf_file" name="pdf_file" class="form-control" accept="application/pdf">
-          {% if selected_assessment and selected_assessment.pdf_filename %}
-          <small>Current: <a href="{{ url_for('static', filename='uploads/'+selected_assessment.pdf_filename) }}" target="_blank">
-            {{ selected_assessment.pdf_filename }}
-          </a></small>
+        <form method="POST" action="{{ url_for('admin') }}" enctype="multipart/form-data" class="mt-10 border-t border-slate-200 pt-8">
+          {% if selected_assessment %}
+          <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
           {% endif %}
-        </div>
 
-        <div class="mb-3">
-          <label for="pdf_file_score" class="form-label">Upload Evaluation Plan PDF</label>
-          <input type="file" id="pdf_file_score" name="pdf_file_score" class="form-control" accept="application/pdf">
-          {% if selected_assessment and selected_assessment.pdf_score_filename %}
-          <small>Current: <a href="{{ url_for('static', filename='uploads/'+selected_assessment.pdf_score_filename) }}" target="_blank">
-            {{ selected_assessment.pdf_score_filename }}
-          </a></small>
-          {% endif %}
-        </div>
+          <div class="grid gap-6 lg:grid-cols-2">
+            <div class="lg:col-span-2">
+              <label for="assessment_name" class="mb-2 block text-sm font-medium text-slate-700">Evaluation name</label>
+              <input
+                type="text"
+                id="assessment_name"
+                name="assessment_name"
+                class="admin-input"
+                required
+                value="{{ selected_assessment.name if selected_assessment else '' }}"
+              >
+            </div>
 
-        <div class="mb-3">
-          <label for="sharepoint_dir" class="form-label">Add Panel Foldder SharePoint link here</label>
-          <input
-            type="text"
-            id="sharepoint_dir"
-            name="sharepoint_dir"
-            class="form-control"
-            required
-            value="{{ sharepoint_dir }}"
-          >
-        </div>
+            <div class="lg:col-span-2">
+              <label for="applications" class="mb-2 block text-sm font-medium text-slate-700">
+                Application code (one per line)
+              </label>
+              <p class="mb-3 text-sm leading-6 text-slate-500">
+                <strong>IMPORTANT</strong> include the leading number and colon `1 -`, `2 -` at the start of each application so numbering can be used in the process. Do this even if there is only one application.
+              </p>
+              <textarea
+                id="applications"
+                name="applications"
+                class="admin-textarea min-h-[10rem]"
+                rows="5"
+              >{{ applications_text }}</textarea>
+            </div>
 
-        <div class="mb-3">
-          <label for="map_url" class="form-label">Map URL (optional)</label>
-          <input
-            type="url"
-            id="map_url"
-            name="map_url"
-            class="form-control"
-            placeholder="https://..."
-            value="{{ map_url if map_url else '' }}"
-          >
-          <small class="text-muted">
-            If provided, assessors can open it in the right-side viewer using a “View map” button.
-          </small>
-        </div>            
+            <div class="lg:col-span-2">
+              <label for="criteria" class="mb-2 block text-sm font-medium text-slate-700">Criteria (description|weight, one per line)</label>
+              <textarea
+                id="criteria"
+                name="criteria"
+                class="admin-textarea min-h-[10rem]"
+                rows="5"
+              >{{ criteria_text }}</textarea>
+            </div>
 
-        <div class="mb-3">
-          <label for="assessors" class="form-label">Panel member names (one per line)</label>
-          <textarea
-            id="assessors"
-            name="assessors"
-            class="form-control"
-            rows="5"
-          >{{ assessors_text }}</textarea>
-        </div>
+            <div>
+              <label for="pdf_file" class="mb-2 block text-sm font-medium text-slate-700">Upload scoring guidance or other supporting documentation</label>
+              <input type="file" id="pdf_file" name="pdf_file" class="admin-input file:mr-4 file:rounded-xl file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:font-semibold file:text-brand-700" accept="application/pdf">
+              {% if selected_assessment and selected_assessment.pdf_filename %}
+              <p class="mt-3 text-sm text-slate-500">
+                Current:
+                <a href="{{ url_for('static', filename='uploads/'+selected_assessment.pdf_filename) }}" target="_blank">
+                  {{ selected_assessment.pdf_filename }}
+                </a>
+              </p>
+              {% endif %}
+            </div>
 
-        <div class="mb-3">
-          <input
-            type="submit"
-            class="btn btn-primary"
-            value="{{ 'Update assessment' if selected_assessment else 'Create new assessment' }}"
-          >
-        </div>
-      </form>
-      <br><br>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-</body>
+            <div>
+              <label for="pdf_file_score" class="mb-2 block text-sm font-medium text-slate-700">Upload evaluation plan PDF</label>
+              <input type="file" id="pdf_file_score" name="pdf_file_score" class="admin-input file:mr-4 file:rounded-xl file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:font-semibold file:text-brand-700" accept="application/pdf">
+              {% if selected_assessment and selected_assessment.pdf_score_filename %}
+              <p class="mt-3 text-sm text-slate-500">
+                Current:
+                <a href="{{ url_for('static', filename='uploads/'+selected_assessment.pdf_score_filename) }}" target="_blank">
+                  {{ selected_assessment.pdf_score_filename }}
+                </a>
+              </p>
+              {% endif %}
+            </div>
+
+            <div class="lg:col-span-2">
+              <label for="sharepoint_dir" class="mb-2 block text-sm font-medium text-slate-700">Add panel folder SharePoint link here</label>
+              <input
+                type="text"
+                id="sharepoint_dir"
+                name="sharepoint_dir"
+                class="admin-input"
+                required
+                value="{{ sharepoint_dir }}"
+              >
+            </div>
+
+            <div class="lg:col-span-2">
+              <label for="map_url" class="mb-2 block text-sm font-medium text-slate-700">Map URL (optional)</label>
+              <input
+                type="url"
+                id="map_url"
+                name="map_url"
+                class="admin-input"
+                placeholder="https://..."
+                value="{{ map_url if map_url else '' }}"
+              >
+              <p class="mt-3 text-sm text-slate-500">
+                If provided, assessors can open it in the right-side viewer using a "View map" button.
+              </p>
+            </div>
+
+            <div class="lg:col-span-2">
+              <label for="assessors" class="mb-2 block text-sm font-medium text-slate-700">Panel member names (one per line)</label>
+              <textarea
+                id="assessors"
+                name="assessors"
+                class="admin-textarea min-h-[10rem]"
+                rows="5"
+              >{{ assessors_text }}</textarea>
+            </div>
+          </div>
+
+          <div class="mt-8">
+            <input
+              type="submit"
+              class="admin-btn cursor-pointer"
+              value="{{ 'Update assessment' if selected_assessment else 'Create new assessment' }}"
+            >
+          </div>
+        </form>
+      </section>
+    </main>
+  </body>
 </html>

@@ -8,6 +8,15 @@
     visibility: visible !important;
   }
 
+  .admin-table-wrap {
+    overflow: visible !important;
+    border: none !important;
+  }
+
+  .admin-table {
+    width: 100% !important;
+  }
+
   .accordion-button {
     background: none !important;
     color: #000000 !important;
@@ -23,6 +32,7 @@
 
   .accordion-item,
   .accordion-panel,
+  .admin-card,
   .rounded-\[1\.5rem\],
   .rounded-\[1\.75rem\],
   .rounded-\[2rem\] {
@@ -46,6 +56,15 @@
     overflow: visible !important;
   }
 
+  select,
+  .admin-btn,
+  .admin-btn-secondary,
+  .admin-btn-success,
+  .admin-btn-warning {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
   #scoringCol,
   #scoreLayout,
   main,
@@ -53,6 +72,10 @@
   article {
     width: 100% !important;
     max-width: 100% !important;
+  }
+
+  .hide-from-print-summary {
+    display: none !important;
   }
 
   .report-page-break {

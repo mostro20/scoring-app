@@ -1,108 +1,88 @@
 <div id="publishSummary">
   {% if selected_assessment %}
 
-    <h2>Application Breakdown</h2>
+    <h2 style="font-size: 1.5rem; margin-bottom: 1rem;">Application Breakdown</h2>
 
-    {# --- Application breakdown: one table, apps sorted by avg_weighted desc already --- #}
-    <table class="table table-sm table-striped">
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem;">
       <thead>
-        <tr>
-          <th style="width: 180px;">Application</th>
-          <th class="text-end" style="width: 120px;">Avg Score</th>
-          <th class="text-end" style="width: 80px;">Rank</th>
-
-          {# one pair of columns per assessor (score only, or score+rank if you want) #}
+        <tr style="background: #f8fafc;">
+          <th style="width: 180px; text-align: left; padding: 10px 12px; border-bottom: 1px solid #cbd5e1;">Application</th>
+          <th style="width: 120px; text-align: right; padding: 10px 12px; border-bottom: 1px solid #cbd5e1;">Avg Score</th>
+          <th style="width: 80px; text-align: right; padding: 10px 12px; border-bottom: 1px solid #cbd5e1;">Rank</th>
           {% for row0 in app_breakdown[0].assessors if app_breakdown and app_breakdown[0].assessors %}
-            <th class="text-end">{{ row0.assessor.name }} score</th>
+            <th style="text-align: right; padding: 10px 12px; border-bottom: 1px solid #cbd5e1;">{{ row0.assessor.name }} score</th>
           {% endfor %}
         </tr>
       </thead>
       <tbody>
         {% for ab in app_breakdown %}
           <tr>
-            <td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;">
               <strong>{{ ab.application.code }}</strong>
               {% if ab.application.name %}
-                <div class="text-muted small">{{ ab.application.name }}</div>
+                <div style="color: #64748b; font-size: 0.875rem;">{{ ab.application.name }}</div>
               {% endif %}
             </td>
-
-            <td class="text-end">
-              {{ (ab.avg_weighted * 10) | round(2) }} / 100
-            </td>
-
-            <td class="text-end">
-              {{ loop.index }}
-            </td>
-
-            {# assessor totals per app (ab.assessors already holds total_weighted) #}
+            <td style="padding: 10px 12px; text-align: right; border-bottom: 1px solid #e2e8f0;">{{ (ab.avg_weighted * 10) | round(2) }} / 100</td>
+            <td style="padding: 10px 12px; text-align: right; border-bottom: 1px solid #e2e8f0;">{{ loop.index }}</td>
             {% for r in ab.assessors %}
-              <td class="text-end">
-                {{ (r.total_weighted * 10) | round(2) }}
-              </td>
+              <td style="padding: 10px 12px; text-align: right; border-bottom: 1px solid #e2e8f0;">{{ (r.total_weighted * 10) | round(2) }}</td>
             {% endfor %}
           </tr>
         {% endfor %}
       </tbody>
     </table>
 
-    <hr>
+    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid #cbd5e1;">
 
-    <h2>Panel-Member Breakdown</h2>
+    <h2 style="font-size: 1.5rem; margin-bottom: 1rem;">Panel-Member Breakdown</h2>
 
     {% for pb in panel_breakdown %}
-      <h3 style="margin-top: 1.25rem;">{{ pb.assessor.name }}</h3>
+      <h3 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">{{ pb.assessor.name }}</h3>
 
-      {# One table per assessor, apps stacked vertically #}
-      <table class="table table-sm table-striped">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem;">
         <thead>
-          <tr>
-            <th style="width: 180px;">Application</th>
-            <th>Criteria</th>
-            <th class="text-end" style="width: 90px;">Raw</th>
-            <th class="text-end" style="width: 140px;">Weighted</th>
+          <tr style="background: #f8fafc;">
+            <th style="width: 180px; text-align: left; padding: 10px 12px; border-bottom: 1px solid #cbd5e1;">Application</th>
+            <th style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #cbd5e1;">Criteria</th>
+            <th style="width: 90px; text-align: right; padding: 10px 12px; border-bottom: 1px solid #cbd5e1;">Raw</th>
+            <th style="width: 140px; text-align: right; padding: 10px 12px; border-bottom: 1px solid #cbd5e1;">Weighted</th>
           </tr>
         </thead>
         <tbody>
-
           {% for blk in pb.by_application %}
             {% set app = blk.application %}
             {% set total_w = blk.criteria_items | sum(attribute='weighted') %}
-
-            {# app header row #}
-            <tr class="table-secondary">
-              <td colspan="4">
+            <tr style="background: #eef9f8;">
+              <td colspan="4" style="padding: 10px 12px; border-bottom: 1px solid #d5efed;">
                 <strong>{{ app.code }}</strong>
-                <span class="text-muted"> — Total: {{ (total_w * 10) | round(2) }} / 100</span>
+                <span style="color: #64748b;"> - Total: {{ (total_w * 10) | round(2) }} / 100</span>
               </td>
             </tr>
-
-            {# criteria rows #}
             {% for ci in blk.criteria_items %}
               <tr>
-                <td></td>
-                <td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;"></td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;">
                   {{ ci.criteria.description }}
-                  <small class="text-muted">({{ ci.criteria.weight }}%)</small>
+                  <small style="color: #64748b;">({{ ci.criteria.weight }}%)</small>
                 </td>
-                <td class="text-end">{{ ci.score }} / 10</td>
-                <td class="text-end">{{ (ci.weighted * 10) | round(2) }} / {{ ci.criteria.weight }}</td>
+                <td style="padding: 10px 12px; text-align: right; border-bottom: 1px solid #e2e8f0;">{{ ci.score }} / 10</td>
+                <td style="padding: 10px 12px; text-align: right; border-bottom: 1px solid #e2e8f0;">{{ (ci.weighted * 10) | round(2) }} / {{ ci.criteria.weight }}</td>
               </tr>
             {% endfor %}
 
-            {# comments block (only if any) #}
             {% set any_comments = blk.criteria_items | selectattr('comment') | list | length > 0 %}
             {% if any_comments %}
               <tr>
-                <td></td>
-                <td colspan="3">
+                <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;"></td>
+                <td colspan="3" style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;">
                   <strong>Comments</strong>
-                  <div style="margin-top: .25rem;">
+                  <div style="margin-top: 0.5rem;">
                     {% for ci in blk.criteria_items %}
                       {% if ci.comment %}
-                        <div style="margin-bottom: .5rem;">
+                        <div style="margin-bottom: 0.6rem;">
                           <div><strong>{{ ci.criteria.description }}</strong></div>
-                          <div class="text-muted">{{ ci.comment }}</div>
+                          <div style="color: #64748b;">{{ ci.comment }}</div>
                         </div>
                       {% endif %}
                     {% endfor %}
@@ -110,11 +90,9 @@
                 </td>
               </tr>
             {% endif %}
-
           {% endfor %}
         </tbody>
       </table>
-
     {% endfor %}
 
   {% endif %}
