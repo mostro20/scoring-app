@@ -2,6 +2,7 @@
 .DS_Store
 __pycache__
 api-reference.md
+db-backups.md
 venv/
 uploads/*
 report_processing/*

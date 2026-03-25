@@ -4,104 +4,179 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Assessor scoring page</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" type="text/css" href="/static/styles.css" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#eef9f8',
+                100: '#d5efed',
+                200: '#addfda',
+                300: '#76c7c1',
+                400: '#3daaa4',
+                500: '#008480',
+                600: '#0b6a6b',
+                700: '#0c5456',
+                800: '#0d4346',
+                900: '#072c32'
+              },
+              ink: '#102226',
+              mist: '#f4f7f6',
+              sand: '#fbf8f1'
+            },
+            boxShadow: {
+              panel: '0 24px 60px rgba(7, 44, 50, 0.18)'
+            }
+          }
+        }
+      };
+    </script>
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
     <link rel="stylesheet" href="/static/print.css" media="print">
-
   </head>
-  <body>
-    <div class="container my-4">
-      <h1 class="mb-4">
-        Evaluation Portal - Assessment Scoring<br>
-        <small class="text-muted">{{ assessment.name }}</small>
-      </h1>
-      <p class="hide-from-print-summary">
-        Please score each criteria 0-10 for every application, along with comments to justify your scoring. Scores and comments will automatically save as you enter them. Each session will expire after 24 hours but you may exit and re-enter the portal using your unique URL and access code at any time, to continue scoring.  
-      </p>
-      <p class="hide-from-print-summary">
-        Access each application in full by following the “Access the panel folder” link below to SharePoint. The panel folder also contains supporting documentation such as the evaluation plan, weighted criteria guidance, the panel briefing and tender documentation.  
-      </p>
-      <ul class="hide-from-print-summary">
-      {% if assessment.sharepoint_dir %}      
-        <li><a href="{{ assessment.sharepoint_dir }}" target="_blank">Access the panel folder</a></li>
-      {% endif %}
-      {% if assessment.pdf_score_filename %}
-        <li><a href="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) }}" target="_blank">Download the evaluation plan</a></li>
-      {% endif %}
-      </ul>
-      <div class="row">
-        <div class="col-md-12">
-          <div class="float-end hide-from-print-summary mb-2">
+  <body class="min-h-screen bg-mist text-ink antialiased">
+    <div class="hidden lg:col-span-12"></div>
+    <div class="absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(circle_at_top,_rgba(0,132,128,0.16),_transparent_55%)]"></div>
 
-                <!-- PDF view switch -->
-                <div class="btn-group btn-group-sm" role="group" aria-label="PDF view">
-                  {% if assessment.map_url %}
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    id="btnMap"
-                    data-mode="map"
-                  >
-                    View map
-                  </button>
-                  {% endif %}
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    id="btnAssessment"
-                    data-mode="assessment"
-                    {% if not assessment.pdf_filename %}disabled{% endif %}
-                  >
-                    Assessment tool
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    id="btnGuide"
-                    data-mode="guide"
-                    {% if not assessment.pdf_score_filename %}disabled{% endif %}
-                  >
-                    Evaluation plan
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    id="btnHide"
-                    data-mode="hide"
-                  >
-                    Hide both
-                  </button>
-                </div>
+    <main class="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <section class="rounded-[2rem] border border-white/60 bg-white/85 p-6 shadow-panel backdrop-blur sm:p-8">
+        <div class="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+          <div class="max-w-4xl">
+            <div class="inline-flex items-center gap-3 rounded-full border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-800">
+              <span class="h-2.5 w-2.5 rounded-full bg-brand-500"></span>
+              Evaluation Portal
+            </div>
+            <h1 class="mt-5 text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
+              Assessment Scoring
+              <span class="mt-3 block text-xl font-medium text-slate-500 sm:text-2xl">{{ assessment.name }}</span>
+            </h1>
+            <div class="mt-6 space-y-4 text-sm leading-7 text-slate-600 sm:text-base hide-from-print-summary">
+              <p>
+                Please score each criteria 0-10 for every application, along with comments to justify your scoring. Scores and comments will automatically save as you enter them. Each session will expire after 24 hours but you may exit and re-enter the portal using your unique URL and access code at any time, to continue scoring.
+              </p>
+              <p>
+                Access each application in full by following the “Access the panel folder” link below to SharePoint. The panel folder also contains supporting documentation such as the evaluation plan, weighted criteria guidance, the panel briefing and tender documentation.
+              </p>
+            </div>
 
+            <ul class="mt-6 flex flex-wrap gap-3 hide-from-print-summary">
+            {% if assessment.sharepoint_dir %}
+              <li>
+                <a href="{{ assessment.sharepoint_dir }}" target="_blank" class="inline-flex items-center rounded-full border border-brand-200 bg-white px-4 py-2 text-sm font-medium text-brand-700 transition hover:border-brand-500 hover:bg-brand-50">
+                  Access the panel folder
+                </a>
+              </li>
+            {% endif %}
+            {% if assessment.pdf_score_filename %}
+              <li>
+                <a href="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) }}" target="_blank" class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-300 hover:bg-white hover:text-brand-700">
+                  Download the evaluation plan
+                </a>
+              </li>
+            {% endif %}
+            </ul>
+          </div>
+
+          <div class="hide-from-print-summary lg:max-w-sm">
+            <div class="rounded-[1.5rem] border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-sand p-5">
+              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-brand-600">Reference View</p>
+              <p class="mt-2 text-sm leading-6 text-slate-600">
+                Switch between supporting documents while you score. Hidden mode expands the scoring workspace.
+              </p>
+              <div class="mt-4 flex flex-wrap gap-2" role="group" aria-label="PDF view">
+                {% if assessment.map_url %}
+                <button
+                  type="button"
+                  class="viewer-toggle-btn"
+                  id="btnMap"
+                  data-mode="map"
+                >
+                  View map
+                </button>
+                {% endif %}
+                <button
+                  type="button"
+                  class="viewer-toggle-btn"
+                  id="btnAssessment"
+                  data-mode="assessment"
+                  {% if not assessment.pdf_filename %}disabled{% endif %}
+                >
+                  Assessment tool
+                </button>
+                <button
+                  type="button"
+                  class="viewer-toggle-btn"
+                  id="btnGuide"
+                  data-mode="guide"
+                  {% if not assessment.pdf_score_filename %}disabled{% endif %}
+                >
+                  Evaluation plan
+                </button>
+                <button
+                  type="button"
+                  class="viewer-toggle-btn"
+                  id="btnHide"
+                  data-mode="hide"
+                >
+                  Hide both
+                </button>
               </div>
+            </div>
+          </div>
         </div>
-        <div id="scoringCol" class="col-md-5">
+      </section>
+
+      <div id="scoreLayout" class="mt-6 grid gap-6 lg:grid-cols-12">
+        <section id="scoringCol" class="lg:col-span-5">
           <form method="POST" action="{{ url_for('score', token=token) }}">
-            <!-- Accordion to collapse each application section -->
-            <div class="accordion" id="appAccordion">
+            <div id="appAccordion" class="space-y-4">
             {% for app in applications %}
-              <div class="accordion-item">
-                <h2 class="accordion-header" id="heading-{{ app.id }}">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app.id }}" aria-expanded="false" aria-controls="collapse-{{ app.id }}">
-                    <strong>Applicant {{ app.code }}</strong>
-                    <span class="small">
-                      &nbsp; Weighted Score: <span id="weighted-{{ app.id }}">{{ weighted_scores[app.id] }}</span><br>
-                      &nbsp; <span class="text-muted" id="progress-{{ app.id }}">0/{{ criteria|length }} scores completed</span>
+              <article class="accordion-item overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md" data-accordion-item>
+                <h2 id="heading-{{ app.id }}">
+                  <button
+                    type="button"
+                    class="accordion-button group flex w-full items-start justify-between gap-4 px-5 py-5 text-left sm:px-6"
+                    data-accordion-trigger
+                    data-target="collapse-{{ app.id }}"
+                    aria-expanded="false"
+                    aria-controls="collapse-{{ app.id }}"
+                  >
+                    <span>
+                      <span class="block text-lg font-semibold text-slate-900">Applicant {{ app.code }}</span>
+                      <span class="mt-2 block text-sm leading-6 text-slate-500">
+                        Weighted Score:
+                        <span class="font-semibold text-brand-700" id="weighted-{{ app.id }}">{{ weighted_scores[app.id] }}</span>
+                      </span>
+                      <span class="block text-sm text-slate-400" id="progress-{{ app.id }}">0/{{ criteria|length }} scores completed</span>
+                    </span>
+                    <span class="accordion-chevron mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition group-hover:border-brand-300 group-hover:text-brand-700">
+                      <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.937a.75.75 0 1 1 1.08 1.04l-4.25 4.51a.75.75 0 0 1-1.08 0l-4.25-4.51a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"></path>
+                      </svg>
                     </span>
                   </button>
                 </h2>
-                <div id="collapse-{{ app.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ app.id }}" data-bs-parent="#appAccordion">
-                  <div class="accordion-body">
+                <div
+                  id="collapse-{{ app.id }}"
+                  class="accordion-panel hidden border-t border-slate-200 bg-slate-50/70"
+                  aria-labelledby="heading-{{ app.id }}"
+                  data-accordion-panel
+                >
+                  <div class="space-y-6 px-5 py-6 sm:px-6">
                     {% for crit in criteria %}
                     {% set key = app.id ~ '-' ~ crit.id %}
-                      <div class="mb-3">
-                        <label for="score-{{ app.id }}-{{ crit.id }}">
-                          <strong>{{ crit.description }}</strong> <span style="color: #666;">(weighted {{ crit.weight }}%)</span><br>
-                          <small><em>Provide a score of 0-10 for {{ crit.description }}</em></small>
+                      <section class="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                        <label for="score-{{ app.id }}-{{ crit.id }}" class="block">
+                          <span class="text-base font-semibold text-slate-900">{{ crit.description }}</span>
+                          <span class="mt-1 block text-sm text-slate-500">(weighted {{ crit.weight }}%)</span>
+                          <span class="mt-3 block text-sm italic text-slate-500">Provide a score of 0-10 for {{ crit.description }}</span>
                         </label>
-                        <input 
+
+                        <input
                           type="number"
-                          class="form-control mb-2"
+                          class="mt-3 block w-full rounded-2xl border-slate-200 bg-slate-50 px-4 py-3 text-base shadow-sm transition focus:border-brand-500 focus:ring-brand-500"
                           name="score-{{ app.id }}-{{ crit.id }}"
                           id="score-{{ app.id }}-{{ crit.id }}"
                           min="0"
@@ -109,33 +184,35 @@
                           step="1"
                           value="{{ score_dict[key].score if key in score_dict else '' }}"
                           {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
-                          >
-                        <label for="comment-{{ app.id }}-{{ crit.id }}" class="hide-from-print-summary">
-                          <small><em>Provide comments for {{ crit.description }}</em></small>
+                        >
+
+                        <label for="comment-{{ app.id }}-{{ crit.id }}" class="mt-4 block text-sm italic text-slate-500 hide-from-print-summary">
+                          Provide comments for {{ crit.description }}
                         </label>
                         <textarea
                           placeholder="Your comments"
-                          class="form-control auto-resize-textarea"
+                          class="auto-resize-textarea mt-2 block w-full rounded-[1.25rem] border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm transition focus:border-brand-500 focus:ring-brand-500"
                           name="comment-{{ app.id }}-{{ crit.id }}"
                           id="comment-{{ app.id }}-{{ crit.id }}"
                           rows="2"
                           {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
                         >{{ score_dict[key].comment if key in score_dict else '' }}</textarea>
-                      </div>
-                      <hr>
+                      </section>
                     {% endfor %}
                   </div>
                 </div>
-              </div>
+              </article>
             {% endfor %}
             </div>
-            <div class="mt-3">
-              <div class="d-flex justify-content-end hide-from-print-summary">
-                <button 
-                  class="btn btn-outline-secondary btn-sm me-2" 
+
+            <div class="mt-6">
+              <div class="flex flex-col gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-end sm:p-5 hide-from-print-summary">
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-brand-300 hover:text-brand-700"
                   onclick="window.print()"
-                  >
-                  🖨️ Summary view
+                >
+                  Summary view
                 </button>
 
                 <button
@@ -143,105 +220,189 @@
                   id="finaliseBtn"
                   name="action"
                   value="finalise"
-                  class="btn btn-primary btn-sm"
-                  onclick="return confirm('Once you submit and finalise, this cannot be undone and your scores are final. Are you sure you want to proceed?');" 
+                  class="inline-flex items-center justify-center rounded-2xl border border-brand-500 bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition hover:border-brand-900 hover:bg-brand-900 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-500"
+                  onclick="return confirm('Once you submit and finalise, this cannot be undone and your scores are final. Are you sure you want to proceed?');"
                 >
                   Submit and finalise your score
                 </button>
               </div>
             </div>
           </form>
-        </div>
-        <div
+        </section>
+
+        <aside
           id="pdfCol"
-          class="col-md-7 hide-from-print-summary"
+          class="hide-from-print-summary lg:col-span-7"
           data-assessment-url="{{ url_for('uploaded_file', filename=assessment.pdf_filename) if assessment.pdf_filename else '' }}"
           data-guide-url="{{ url_for('uploaded_file', filename=assessment.pdf_score_filename) if assessment.pdf_score_filename else '' }}"
           data-map-url="{{ assessment.map_url or '' }}"
         >
-          <iframe id="pdfFrame" width="100%" height="1200px" class="border" title="Reference PDF"></iframe>
-          <div id="pdfMissing" class="alert alert-warning m-2 d-none">
-            The selected document isn’t available for this assessment.
+          <div class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-panel">
+            <div class="border-b border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
+              <h2 class="text-lg font-semibold text-slate-900">Reference material</h2>
+              <p class="mt-1 text-sm text-slate-500">Open assessment documents alongside your scoring form.</p>
+            </div>
+            <iframe id="pdfFrame" class="h-[900px] w-full border-0 bg-white lg:h-[1200px]" title="Reference PDF"></iframe>
+            <div id="pdfMissing" class="hidden border-t border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 sm:px-6">
+              The selected document isn’t available for this assessment.
+            </div>
           </div>
-        </div>
+        </aside>
       </div>
-    </div>
-    <div class="container">
-      <div class="alert alert-info py-1 px-2 d-flex align-items-center justify-content-between hide-from-print-summary">
-        <div>
-            <strong>Session time remaining:</strong>
-            <span id="session-timer">24:00:00</span>
+
+      <section class="mt-6 hide-from-print-summary">
+        <div class="flex flex-col gap-3 rounded-[1.5rem] border border-brand-100 bg-brand-50/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div>
+            <p class="text-sm font-semibold text-brand-800">Session time remaining: <span id="session-timer">24:00:00</span></p>
+          </div>
+          <p class="text-sm leading-6 text-brand-700">
+            After this time changes will no longer auto-save and you will need to log back in.
+          </p>
         </div>
-        <small class="text-muted ms-2">
-          After this time changes will no longer auto-save and you will need to log back in.
-        </small>
-      </div>
-    </div>
+      </section>
+    </main>
 
     {% with messages = get_flashed_messages() %}
       {% if messages %}
-        <!-- Modal -->
-        <div class="modal fade" id="submissionModal" tabindex="-1" aria-labelledby="submissionModalLabel" aria-hidden="true">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="submissionModalLabel">Submission Received</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div id="submissionModal" class="modal-shell hidden" aria-labelledby="submissionModalLabel" aria-hidden="true">
+          <div class="modal-backdrop" data-close-modal="submissionModal"></div>
+          <div class="modal-panel" role="dialog" aria-modal="true">
+            <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+              <div>
+                <h2 class="text-xl font-semibold text-slate-900" id="submissionModalLabel">Submission Received</h2>
               </div>
-              <div class="modal-body">
-                {{ messages[0] }}
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
-              </div>
+              <button type="button" class="modal-close" aria-label="Close" data-close-modal="submissionModal">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="px-6 py-5 text-sm leading-7 text-slate-600">
+              {{ messages[0] }}
+            </div>
+            <div class="flex justify-end border-t border-slate-200 px-6 py-4">
+              <button type="button" class="inline-flex items-center justify-center rounded-2xl border border-brand-500 bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-brand-900 hover:bg-brand-900" data-close-modal="submissionModal">OK</button>
             </div>
           </div>
         </div>
       {% endif %}
     {% endwith %}
 
-    <!-- Session expired modal -->
-    <div class="modal fade" id="sessionExpiredModal" tabindex="-1"
-        aria-labelledby="sessionExpiredModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="sessionExpiredModalLabel">Session expired</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"
-                    aria-label="Close"></button>
+    <div id="sessionExpiredModal" class="modal-shell hidden" aria-labelledby="sessionExpiredModalLabel" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="sessionExpiredModal"></div>
+      <div class="modal-panel" role="dialog" aria-modal="true">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+          <div>
+            <h2 class="text-xl font-semibold text-slate-900" id="sessionExpiredModalLabel">Session expired</h2>
           </div>
-          <div class="modal-body">
+          <button type="button" class="modal-close" aria-label="Close" data-close-modal="sessionExpiredModal">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="px-6 py-5 text-sm leading-7 text-slate-600">
+          <p>
             Your scoring page has been open for more than 24 hours. For security reasons,
             your login session may have expired.
-            <ul>
-              <li>Any scores you enter from now on may not be saved.</li>
-              <li>Please copy any notes you need, then refresh this page using your original access link.</li>
-            </ul>
-          </div>
-          <div class="modal-footer">
-            <a href="" class="btn btn-primary" id="sessionRefreshLink">Refresh now</a>
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-              I'll refresh later
-            </button>
-          </div>
+          </p>
+          <ul class="mt-4 list-disc space-y-2 pl-5">
+            <li>Any scores you enter from now on may not be saved.</li>
+            <li>Please copy any notes you need, then refresh this page using your original access link.</li>
+          </ul>
+        </div>
+        <div class="flex flex-col-reverse gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row sm:justify-end">
+          <button type="button" class="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-brand-300 hover:text-brand-700" data-close-modal="sessionExpiredModal">
+            I'll refresh later
+          </button>
+          <a href="" class="inline-flex items-center justify-center rounded-2xl border border-brand-500 bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-brand-900 hover:bg-brand-900" id="sessionRefreshLink">Refresh now</a>
         </div>
       </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
     <script>
-      // Show "submission received" modal if it exists
-      document.addEventListener("DOMContentLoaded", function(){
-        var submissionModalEl = document.getElementById('submissionModal');
-        if (submissionModalEl && window.bootstrap) {
-          var submissionModal = new bootstrap.Modal(submissionModalEl);
-          submissionModal.show();
+      function openModal(id) {
+        const modal = document.getElementById(id);
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        modal.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeModal(id) {
+        const modal = document.getElementById(id);
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        if (!document.querySelector('.modal-shell:not(.hidden)')) {
+          document.body.classList.remove('overflow-hidden');
         }
+      }
+
+      function openAccordionPanel(panel) {
+        if (!panel) return;
+        panel.classList.remove('hidden');
+        panel.dataset.open = 'true';
+
+        const trigger = document.querySelector(`[data-target="${panel.id}"]`);
+        const item = trigger?.closest('[data-accordion-item]');
+
+        if (trigger) {
+          trigger.setAttribute('aria-expanded', 'true');
+          trigger.classList.add('is-open');
+        }
+        if (item) item.classList.add('is-open');
+      }
+
+      function closeAccordionPanel(panel) {
+        if (!panel) return;
+        panel.classList.add('hidden');
+        panel.dataset.open = 'false';
+
+        const trigger = document.querySelector(`[data-target="${panel.id}"]`);
+        const item = trigger?.closest('[data-accordion-item]');
+
+        if (trigger) {
+          trigger.setAttribute('aria-expanded', 'false');
+          trigger.classList.remove('is-open');
+        }
+        if (item) item.classList.remove('is-open');
+      }
+
+      function recalcApp(appId) {
+        let total = 0;
+        document.querySelectorAll(`input[name^="score-${appId}-"]`).forEach(input => {
+          const [, , critId] = input.name.split('-');
+          const weight = Number(critWeights[critId] || 0);
+          const value = Number(input.value);
+          if (input.value !== '' && !Number.isNaN(value)) {
+            total += value * (weight / 100);
+          }
+        });
+
+        const el = document.getElementById(`weighted-${appId}`);
+        if (el) el.textContent = total.toFixed(2);
+      }
+
+      // Show "submission received" modal if it exists
+      document.addEventListener('DOMContentLoaded', function() {
+        if (document.getElementById('submissionModal')) {
+          openModal('submissionModal');
+        }
+
+        document.querySelectorAll('[data-close-modal]').forEach(el => {
+          el.addEventListener('click', function() {
+            closeModal(this.dataset.closeModal);
+          });
+        });
+
+        document.addEventListener('keydown', function(event) {
+          if (event.key === 'Escape') {
+            document.querySelectorAll('.modal-shell:not(.hidden)').forEach(modal => {
+              closeModal(modal.id);
+            });
+          }
+        });
       });
 
-      document.getElementById('finaliseBtn')?.addEventListener('click', function(){
-        document.querySelectorAll('.accordion-collapse').forEach(panel=>{
-          new bootstrap.Collapse(panel, { toggle: false }).show();
-        });
+      document.getElementById('finaliseBtn')?.addEventListener('click', function() {
+        document.querySelectorAll('.accordion-panel').forEach(openAccordionPanel);
       });
 
       // build the autosave URL once
@@ -250,7 +411,7 @@
       window.sessionExpired = false;
 
       // helper to POST JSON
-      async function autosave(payload){
+      async function autosave(payload) {
         if (window.sessionExpired) {
           console.warn('Skipping autosave because session is marked as expired.');
           return;
@@ -266,14 +427,14 @@
             let err = await res.json();
             console.error('Autosave error:', err);
           }
-        } catch(e) {
+        } catch (e) {
           console.error('Autosave failed:', e);
         }
       }
 
       // now Jinja just dumps a JSON literal
-      const critWeights    = {{ crit_weights  | tojson }};
-      const initialScores  = {{ weighted_scores | tojson }};
+      const critWeights = {{ crit_weights | tojson }};
+      const initialScores = {{ weighted_scores | tojson }};
 
       // set initial display
       document.addEventListener('DOMContentLoaded', () => {
@@ -289,7 +450,6 @@
 
         let done = 0;
         inputs.forEach(input => {
-          // treat blank as not done; treat 0..10 as done
           const v = input.value;
           if (v !== '' && v !== null && !isNaN(parseInt(v, 10))) done++;
         });
@@ -300,19 +460,18 @@
 
       // attach blur listeners to every score input and every comment textarea
       document.querySelectorAll(
-          'input[name^="score-"], textarea[name^="comment-"]'
-        ).forEach(el => {
-        el.addEventListener('blur', function(){
-          // name is "score-<appId>-<critId>" or "comment-<appId>-<critId>"
+        'input[name^="score-"], textarea[name^="comment-"]'
+      ).forEach(el => {
+        el.addEventListener('blur', function() {
           let [type, appId, critId] = this.name.split('-');
-          let scoreField   = document.querySelector(`input[name="score-${appId}-${critId}"]`);
+          let scoreField = document.querySelector(`input[name="score-${appId}-${critId}"]`);
           let commentField = document.querySelector(`textarea[name="comment-${appId}-${critId}"]`);
 
           autosave({
             application_id: parseInt(appId, 10),
-            criteria_id:    parseInt(critId, 10),
-            score:          scoreField   ? scoreField.value   : null,
-            comment:        commentField ? commentField.value : null
+            criteria_id: parseInt(critId, 10),
+            score: scoreField ? scoreField.value : null,
+            comment: commentField ? commentField.value : null
           });
 
           recalcApp(appId);
@@ -320,50 +479,67 @@
         });
       });
 
-      document.addEventListener('DOMContentLoaded', function(){
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('[data-accordion-trigger]').forEach(trigger => {
+          trigger.addEventListener('click', function() {
+            const panel = document.getElementById(this.dataset.target);
+            if (!panel) return;
+
+            const isOpen = panel.dataset.open === 'true';
+            if (isOpen) {
+              closeAccordionPanel(panel);
+            } else {
+              document.querySelectorAll('.accordion-panel').forEach(otherPanel => {
+                if (otherPanel !== panel) closeAccordionPanel(otherPanel);
+              });
+              openAccordionPanel(panel);
+            }
+          });
+        });
+
         const scoringCol = document.getElementById('scoringCol');
-        const pdfCol     = document.getElementById('pdfCol');
-        const pdfFrame   = document.getElementById('pdfFrame');
+        const pdfCol = document.getElementById('pdfCol');
+        const scoreLayout = document.getElementById('scoreLayout');
+        const pdfFrame = document.getElementById('pdfFrame');
         const pdfMissing = document.getElementById('pdfMissing');
 
-      const urls = {
-        assessment: pdfCol?.dataset.assessmentUrl || '',
-        guide:      pdfCol?.dataset.guideUrl || '',
-        map:        pdfCol?.dataset.mapUrl || ''
-      };
+        const urls = {
+          assessment: pdfCol?.dataset.assessmentUrl || '',
+          guide: pdfCol?.dataset.guideUrl || '',
+          map: pdfCol?.dataset.mapUrl || ''
+        };
 
-        // Buttons
         const btnAssessment = document.getElementById('btnAssessment');
-        const btnGuide      = document.getElementById('btnGuide');
-        const btnMap        = document.getElementById('btnMap');
-        const btnHide       = document.getElementById('btnHide');
+        const btnGuide = document.getElementById('btnGuide');
+        const btnMap = document.getElementById('btnMap');
+        const btnHide = document.getElementById('btnHide');
         const btns = [btnAssessment, btnGuide, btnMap, btnHide];
 
         function setActive(mode) {
           btns.forEach(b => {
             if (!b) return;
             const isActive = b.dataset.mode === mode;
-            b.classList.toggle('btn-secondary', isActive);
-            b.classList.toggle('btn-outline-secondary', !isActive);
+            b.classList.toggle('viewer-toggle-btn-active', isActive);
             b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
           });
         }
 
         function setLayout(hidden) {
-          pdfCol.classList.toggle('d-none', hidden);
-          scoringCol.classList.toggle('col-md-5', !hidden);
-          scoringCol.classList.toggle('col-md-12', hidden);
+          if (!scoreLayout || !pdfCol || !scoringCol) return;
+          pdfCol.classList.toggle('hidden', hidden);
+          scoringCol.classList.toggle('lg:col-span-5', !hidden);
+          scoringCol.classList.toggle('lg:col-span-12', hidden);
         }
 
         function showMissing() {
           pdfFrame.removeAttribute('src');
-          pdfMissing.classList.remove('d-none');
-          setLayout(false); // still show right column, but with message
+          pdfMissing.classList.remove('hidden');
+          setLayout(false);
         }
 
         function setMode(mode) {
           setActive(mode);
-          pdfMissing.classList.add('d-none');
+          pdfMissing.classList.add('hidden');
 
           if (mode === 'hide') {
             pdfFrame.removeAttribute('src');
@@ -377,21 +553,17 @@
             return;
           }
 
-          // Show iframe with the chosen doc
           pdfFrame.src = src;
           setLayout(false);
         }
 
-        // Wire buttons
         btns.forEach(b => b && b.addEventListener('click', () => setMode(b.dataset.mode)));
 
-        // Initial mode: prefer Assessment, then Guide, else Hide
         const initialMode = urls.assessment ? 'assessment' : (urls.guide ? 'guide' : 'hide');
         setMode(initialMode);
       });
 
       document.addEventListener('DOMContentLoaded', () => {
-        // auto-resize remarks textareas
         document.querySelectorAll('.auto-resize-textarea').forEach(textarea => {
           textarea.style.height = textarea.scrollHeight + 'px';
           textarea.style.overflowY = 'hidden';
@@ -404,9 +576,8 @@
       });
 
       document.addEventListener('DOMContentLoaded', () => {
-        // initialise progress for each appId we can see in the DOM
         document.querySelectorAll('input[name^="score-"]').forEach(input => {
-          const [, appId] = input.name.split('-'); // "score-<appId>-<critId>"
+          const [, appId] = input.name.split('-');
           recalcProgress(appId);
         });
       });
@@ -416,11 +587,11 @@
       // Uses localStorage so refreshes don't reset it
       // -------------------------
       document.addEventListener('DOMContentLoaded', () => {
-        const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+        const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
         const timerEl = document.getElementById('session-timer');
         if (!timerEl) return;
 
-        const token = "{{ token }}";   // unique per scoring page
+        const token = "{{ token }}";
         const LS_KEY = `scoringTimer_${token}`;
 
         const refreshLink = document.getElementById('sessionRefreshLink');
@@ -428,24 +599,16 @@
           refreshLink.href = window.location.href;
         }
 
-        const expiredModalEl = document.getElementById('sessionExpiredModal');
-        let expiredModal = null;
-        if (expiredModalEl && window.bootstrap) {
-          expiredModal = new bootstrap.Modal(expiredModalEl);
-        }
-
         function handleExpired() {
           if (window.sessionExpired) return;
           window.sessionExpired = true;
 
-          // disable UI
           document.querySelectorAll('input[name^="score-"], textarea[name^="comment-"]').forEach(el => {
             el.setAttribute('disabled', 'disabled');
           });
           document.getElementById('finaliseBtn')?.setAttribute('disabled', 'disabled');
 
-          // show modal
-          if (expiredModal) expiredModal.show();
+          openModal('sessionExpiredModal');
         }
 
         function formatTime(ms) {
@@ -456,7 +619,6 @@
           return `${h}:${m}:${s}`;
         }
 
-        // --- load or create session info ---
         let sessionData = null;
         try {
           sessionData = JSON.parse(localStorage.getItem(LS_KEY));
@@ -465,21 +627,18 @@
         const now = Date.now();
 
         if (!sessionData || !sessionData.expiry || now > sessionData.expiry) {
-          // session missing or already expired → start a fresh 24h window
           const start = now;
           const expiry = start + SESSION_DURATION_MS;
           sessionData = { start, expiry };
           localStorage.setItem(LS_KEY, JSON.stringify(sessionData));
         }
 
-        // If user loads after expiry, show expired immediately
         if (now >= sessionData.expiry) {
           timerEl.textContent = "00:00:00";
           handleExpired();
           return;
         }
 
-        // --- normal countdown ---
         const intervalId = setInterval(() => {
           const remaining = sessionData.expiry - Date.now();
           if (remaining <= 0) {
@@ -491,10 +650,8 @@
           timerEl.textContent = formatTime(remaining);
         }, 1000);
 
-        // initial render
         timerEl.textContent = formatTime(sessionData.expiry - now);
       });
     </script>
-
   </body>
 </html>
