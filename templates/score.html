@@ -195,7 +195,7 @@
                           name="comment-{{ app.id }}-{{ crit.id }}"
                           id="comment-{{ app.id }}-{{ crit.id }}"
                           rows="2"
-                          {% if key in score_dict and score_dict[key].finalised %}disabled{% endif %}
+                          {% if key in score_dict and score_dict[key].finalised %}readonly{% endif %}
                         >{{ score_dict[key].comment if key in score_dict else '' }}</textarea>
                       </section>
                     {% endfor %}
@@ -348,6 +348,8 @@
           trigger.classList.add('is-open');
         }
         if (item) item.classList.add('is-open');
+
+        panel.querySelectorAll('.auto-resize-textarea').forEach(resizeTextarea);
       }
 
       function closeAccordionPanel(panel) {
@@ -378,6 +380,13 @@
 
         const el = document.getElementById(`weighted-${appId}`);
         if (el) el.textContent = total.toFixed(2);
+      }
+
+      function resizeTextarea(textarea) {
+        if (!textarea) return;
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+        textarea.style.overflowY = 'hidden';
       }
 
       // Show "submission received" modal if it exists
@@ -565,12 +574,10 @@
 
       document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.auto-resize-textarea').forEach(textarea => {
-          textarea.style.height = textarea.scrollHeight + 'px';
-          textarea.style.overflowY = 'hidden';
+          resizeTextarea(textarea);
 
           textarea.addEventListener('input', () => {
-            textarea.style.height = 'auto';
-            textarea.style.height = textarea.scrollHeight + 'px';
+            resizeTextarea(textarea);
           });
         });
       });
