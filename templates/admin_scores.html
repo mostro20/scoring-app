@@ -134,9 +134,9 @@
                     <table class="admin-table">
                       <thead>
                         <tr>
-                          <th>No.</th>
+                          
                           <th>Provider name</th>
-                          <th>ABN</th>
+                          
                           <th>Funding requested</th>
                           <th>Rank</th>
                           <th>Final score</th>
@@ -147,9 +147,9 @@
                       <tbody>
                         {% for group in grouped_scores %}
                         <tr>
-                          <td>{{ group.application.code | clean_code_no }}</td>
+                          
                           <td>{{ group.application.code | clean_code }}</td>
-                          <td></td>
+                          
                           <td>
                             <input
                               type="number"
@@ -180,7 +180,7 @@
                         </tr>
                         {% endfor %}
                         <tr class="admin-table-summary">
-                          <td colspan="3"><strong>Running Totals:</strong></td>
+                          <td><strong>Running Totals:</strong></td>
                           <td><strong id="totalRequested">0.00</strong></td>
                           <td></td>
                           <td></td>
