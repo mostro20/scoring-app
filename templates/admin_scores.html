@@ -270,17 +270,6 @@
                   <input type="text" class="admin-input" name="form_key" id="form_key" value="GRPR-XX" required>
                 </div>
 
-                <div id="roundWrap">
-                  <label for="round" class="mb-2 block text-sm font-medium text-slate-700">Select Round</label>
-                  <select name="round" id="round" class="admin-select">
-                    <option value="MDBGaWVsZC0yODQzNA">Round 1</option>
-                    <option value="MDBGaWVsZC0yODQ2OQ">Round 2</option>
-                    <option value="MDBGaWVsZC0yODQ3MQ">Round 3</option>
-                    <option value="MDBGaWVsZC0yODQ3Mw">Round 4</option>
-                    <option value="MDBGaWVsZC0yODQ3NQ">Round 5</option>
-                  </select>
-                </div>
-
                 <input type="hidden" name="table_html" id="table_html">
                 <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
 
@@ -347,22 +336,6 @@
       });
 
       document.addEventListener('DOMContentLoaded', updateTotals);
-
-      document.addEventListener('DOMContentLoaded', function() {
-        const sel = document.getElementById('report_type');
-        const roundWrap = document.getElementById('roundWrap');
-        const round = document.getElementById('round');
-        if (!sel || !roundWrap || !round) return;
-
-        function toggle() {
-          roundWrap.style.display = (sel.value === 'grant') ? '' : 'none';
-          round.toggleAttribute('required', sel.value === 'grant');
-        }
-
-        sel.addEventListener('change', toggle);
-        toggle();
-      });
-
       function formatNumberLike(n) {
         if (n === '' || n === null || n === undefined) return '';
         const num = Number(n);

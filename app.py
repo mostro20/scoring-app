@@ -423,12 +423,9 @@ def create_app():
         assessment_id = request.form.get('assessment_id')
         form_key      = request.form.get('form_key')
         report_type   = request.form.get('report_type', 'grant')
-        round_field_id= request.form.get('round')          # only for grant
         
         if not all([assessment_id, form_key]):
             return jsonify({"error": "Missing required fields"}), 400
-        if report_type == 'grant' and not round_field_id:
-            return jsonify({"error": "Round is required for Grant Report"}), 400
         
         assessment = Assessment.query.get(assessment_id)
         if not assessment:
@@ -472,43 +469,15 @@ def create_app():
             return jsonify({"error":"No folio found for the provided key"}), 400
         folio_id = nodes[0]["id"]
 
-        # 3) GRANT REPORT (existing behaviour)
-        if report_type == 'grant':
-            mutation = f"""
-            mutation {{
-            updateFolio(
-                input: {{
-                folioId: "{folio_id}",
-                fieldResponses: [
-                    {{
-                    fieldId: "{round_field_id}",
-                    text: {json.dumps(table_html)}
-                    }}
-                ]
-                }}
-            ) {{
-                data {{ id key title }}
-                errors {{ message }}
-            }}
-            }}
-            """
-            mres = requests.post(GRAPHQL_URL, json={"query": mutation}, headers=headers)
-            if mres.status_code != 200:
-                return jsonify({"error":"Failed to update folio", "details": mres.text}), mres.status_code
-            result = json.dumps(mres.json(), indent=2)
-            return render_template('publish_result.html', result=result)
-
-        # 4) PROCUREMENT REPORT
-        # env field IDs
+        # Shared report publishing flow.
         F_PROVIDER = os.environ.get('FOLIO_FIELD_ID_PROC_PROVIDER')
         F_RANK     = os.environ.get('FOLIO_FIELD_ID_PROC_RANK')
         F_FINAL    = os.environ.get('FOLIO_FIELD_ID_PROC_FINAL_SCORE')
         F_REQ      = os.environ.get('FOLIO_FIELD_ID_PROC_FUNDING_REQUESTED')
         F_GIVEN    = os.environ.get('FOLIO_FIELD_ID_PROC_FUNDING_GRANTED')
-        #F_SUCC     = os.environ.get('FOLIO_FIELD_ID_PROC_SUCCESS')
-        A_YES      = os.environ.get('FOLIO_ANSWER_ID_SUCCESS_YES')
-        A_NO       = os.environ.get('FOLIO_ANSWER_ID_SUCCESS_NO')
-        F_HTML     = os.environ.get('FOLIO_FIELD_ID_PROC_TABLE_HTML')
+        F_HTML_PROC = os.environ.get('FOLIO_FIELD_ID_PROC_TABLE_HTML')
+        F_HTML_GRANT = os.environ.get('FOLIO_FIELD_ID_GPLAN_TABLE_HTML')
+        F_HTML = F_HTML_GRANT if report_type == 'grant' else F_HTML_PROC
 
         missing = [k for k,v in {
             "FOLIO_FIELD_ID_PROC_PROVIDER":F_PROVIDER,
@@ -516,10 +485,8 @@ def create_app():
             "FOLIO_FIELD_ID_PROC_FINAL_SCORE":F_FINAL,
             "FOLIO_FIELD_ID_PROC_FUNDING_REQUESTED":F_REQ,
             "FOLIO_FIELD_ID_PROC_FUNDING_GRANTED":F_GIVEN,
-            #"FOLIO_FIELD_ID_PROC_SUCCESS":F_SUCC,
-            "FOLIO_ANSWER_ID_SUCCESS_YES":A_YES,
-            "FOLIO_ANSWER_ID_SUCCESS_NO":A_NO,
-            "FOLIO_FIELD_ID_PROC_TABLE_HTML":F_HTML
+            "FOLIO_FIELD_ID_GPLAN_TABLE_HTML": F_HTML_GRANT if report_type == 'grant' else True,
+            "FOLIO_FIELD_ID_PROC_TABLE_HTML": F_HTML_PROC if report_type != 'grant' else True,
         }.items() if not v]
         if missing:
             return jsonify({"error":"Missing .env mappings", "fields": missing}), 400
@@ -590,10 +557,8 @@ def create_app():
                 frags.append(resp_numeric(F_REQ, float(app.funding_requested), rowIndex=i))
             if app.funding_given is not None:
                 frags.append(resp_numeric(F_GIVEN, float(app.funding_given), rowIndex=i))
-            #if app.successful is not None:
-            #    frags.append(resp_select(F_SUCC, A_YES if app.successful else A_NO, rowIndex=i))
 
-        # Also push the whole Outcome HTML to a field
+        # Push the outcome HTML to the report-specific rich text field.
         frags.append(resp_text(F_HTML, table_html))
 
         field_responses_str = "[\n  " + ",\n  ".join(frags) + "\n]"
