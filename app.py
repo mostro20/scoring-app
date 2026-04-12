@@ -547,11 +547,11 @@ def create_app():
         for i, g in enumerate(grouped_list):
             app = g["application"]
             provider = _clean_provider_name(app.code)
-            final_txt = f'{round(g["final_score"], 2)}/100'
+            final_score = round(g["final_score"], 2)
 
             frags.append(resp_text(F_PROVIDER, provider, rowIndex=i))
             frags.append(resp_numeric(F_RANK, g["rank"], rowIndex=i))
-            frags.append(resp_text(F_FINAL, final_txt, rowIndex=i))
+            frags.append(resp_numeric(F_FINAL, final_score, rowIndex=i))
 
             if app.funding_requested is not None:
                 frags.append(resp_numeric(F_REQ, float(app.funding_requested), rowIndex=i))
