@@ -258,16 +258,16 @@
                 <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
 
                 <div>
-                  <label for="report_type" class="mb-2 block text-sm font-medium text-slate-700">Report type</label>
+                  <label for="report_type" class="mb-2 block text-sm font-medium text-slate-700">Folio prefix</label>
                   <select name="report_type" id="report_type" class="admin-select" required>
-                    <option value="grant" selected>Grant Report</option>
-                    <option value="procurement">Procurement Report</option>
+                    <option value="gplan" selected>GPLAN</option>
+                    <option value="prep2">PREP2</option>
                   </select>
                 </div>
 
                 <div>
                   <label for="form_key" class="mb-2 block text-sm font-medium text-slate-700">Enter Folio Key</label>
-                  <input type="text" class="admin-input" name="form_key" id="form_key" value="GRPR-XX" required>
+                  <input type="text" class="admin-input" name="form_key" id="form_key" value="GPLAN-XX" required>
                 </div>
 
                 <input type="hidden" name="table_html" id="table_html">
@@ -388,6 +388,15 @@
         const form = document.getElementById('publish-form');
         const hidden = document.getElementById('table_html');
         if (!form || !hidden) return;
+
+        const reportType = document.getElementById('report_type');
+        const formKey = document.getElementById('form_key');
+        reportType?.addEventListener('change', function() {
+          const prefix = this.value === 'prep2' ? 'PREP2' : 'GPLAN';
+          if (!formKey.value || /^(GPLAN|PREP2|GRPR)-XX$/i.test(formKey.value)) {
+            formKey.value = `${prefix}-XX`;
+          }
+        });
 
         form.addEventListener('submit', function() {
           const cleaned = sanitizeOutcomeTable();

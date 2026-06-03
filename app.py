@@ -469,25 +469,60 @@ def create_app():
             return jsonify({"error":"No folio found for the provided key"}), 400
         folio_id = nodes[0]["id"]
 
-        # Shared report publishing flow.
-        F_PROVIDER = os.environ.get('FOLIO_FIELD_ID_PROC_PROVIDER')
-        F_RANK     = os.environ.get('FOLIO_FIELD_ID_PROC_RANK')
-        F_FINAL    = os.environ.get('FOLIO_FIELD_ID_PROC_FINAL_SCORE')
-        F_REQ      = os.environ.get('FOLIO_FIELD_ID_PROC_FUNDING_REQUESTED')
-        F_GIVEN    = os.environ.get('FOLIO_FIELD_ID_PROC_FUNDING_GRANTED')
-        F_HTML_PROC = os.environ.get('FOLIO_FIELD_ID_PROC_TABLE_HTML')
-        F_HTML_GRANT = os.environ.get('FOLIO_FIELD_ID_GPLAN_TABLE_HTML')
-        F_HTML = F_HTML_GRANT if report_type == 'grant' else F_HTML_PROC
+        # Prefix-specific report publishing fields. GPLAN and PREP2 use
+        # different Folio field IDs for the same outcome columns.
+        publish_field_envs = {
+            "GPLAN": {
+                "provider": "FOLIO_FIELD_ID_GRANT_PROVIDER",
+                "rank": "FOLIO_FIELD_ID_GRANT_RANK",
+                "final_score": "FOLIO_FIELD_ID_GRANT_FINAL_SCORE",
+                "funding_requested": "FOLIO_FIELD_ID_GRANT_FUNDING_REQUESTED",
+                "funding_granted": "FOLIO_FIELD_ID_GRANT_FUNDING_GRANTED",
+                "success": "FOLIO_FIELD_ID_GRANT_SUCCESS",
+                "success_yes": "FOLIO_ANSWER_ID_GRANT_SUCCESS_YES",
+                "success_no": "FOLIO_ANSWER_ID_GRANT_SUCCESS_NO",
+                "table_html": "FOLIO_FIELD_ID_GPLAN_TABLE_HTML",
+            },
+            "PREP2": {
+                "provider": "FOLIO_FIELD_ID_PROC_PROVIDER",
+                "rank": "FOLIO_FIELD_ID_PROC_RANK",
+                "final_score": "FOLIO_FIELD_ID_PROC_FINAL_SCORE",
+                "funding_requested": "FOLIO_FIELD_ID_PROC_FUNDING_REQUESTED",
+                "funding_granted": "FOLIO_FIELD_ID_PROC_FUNDING_GRANTED",
+                "success": "FOLIO_FIELD_ID_PROC_SUCCESS",
+                "success_yes": "FOLIO_ANSWER_ID_PROC_SUCCESS_YES",
+                "success_no": "FOLIO_ANSWER_ID_PROC_SUCCESS_NO",
+                "table_html": "FOLIO_FIELD_ID_PROC_TABLE_HTML",
+            },
+        }
+        report_type_fallbacks = {
+            "grant": "GPLAN",
+            "gplan": "GPLAN",
+            "procurement": "PREP2",
+            "proc": "PREP2",
+            "prep2": "PREP2",
+        }
+        normalized_form_key = (form_key or "").strip().upper()
+        publish_prefix = next(
+            (prefix for prefix in publish_field_envs if normalized_form_key.startswith(prefix)),
+            None
+        )
+        if not publish_prefix:
+            publish_prefix = report_type_fallbacks.get((report_type or "").strip().lower())
+        if not publish_prefix:
+            return jsonify({
+                "error": "Unsupported Folio key prefix",
+                "details": "Expected a GPLAN or PREP2 Folio key prefix."
+            }), 400
 
-        missing = [k for k,v in {
-            "FOLIO_FIELD_ID_PROC_PROVIDER":F_PROVIDER,
-            "FOLIO_FIELD_ID_PROC_RANK":F_RANK,
-            "FOLIO_FIELD_ID_PROC_FINAL_SCORE":F_FINAL,
-            "FOLIO_FIELD_ID_PROC_FUNDING_REQUESTED":F_REQ,
-            "FOLIO_FIELD_ID_PROC_FUNDING_GRANTED":F_GIVEN,
-            "FOLIO_FIELD_ID_GPLAN_TABLE_HTML": F_HTML_GRANT if report_type == 'grant' else True,
-            "FOLIO_FIELD_ID_PROC_TABLE_HTML": F_HTML_PROC if report_type != 'grant' else True,
-        }.items() if not v]
+        field_envs = publish_field_envs[publish_prefix]
+        field_ids = {name: os.environ.get(env_name) for name, env_name in field_envs.items()}
+
+        missing = [
+            env_name
+            for name, env_name in field_envs.items()
+            if not field_ids.get(name)
+        ]
         if missing:
             return jsonify({"error":"Missing .env mappings", "fields": missing}), 400
 
@@ -537,11 +572,11 @@ def create_app():
             # GraphQL numeric literal, not quoted
             return f'{{fieldId:"{field_id}", numeric:{num}' + (f', rowIndex:{rowIndex}' if rowIndex is not None else '') + '}'
 
-        #def resp_select(field_id, answer_id, rowIndex=None):
-        #    return (
-        #        '{fieldId:"' + field_id + '", fieldAnswerResponses:[{fieldAnswerId:"' + answer_id + '"}]' +
-        #        (f', rowIndex:{rowIndex}' if rowIndex is not None else '') + '}'
-        #    )
+        def resp_select(field_id, answer_id, rowIndex=None):
+            return (
+                f'{{fieldId:"{field_id}", fieldAnswerResponses:[{{fieldAnswerId:"{answer_id}"}}]' +
+                (f', rowIndex:{rowIndex}' if rowIndex is not None else '') + '}'
+            )
 
         frags = []
         for i, g in enumerate(grouped_list):
@@ -549,17 +584,20 @@ def create_app():
             provider = _clean_provider_name(app.code)
             final_score = round(g["final_score"], 2)
 
-            frags.append(resp_text(F_PROVIDER, provider, rowIndex=i))
-            frags.append(resp_numeric(F_RANK, g["rank"], rowIndex=i))
-            frags.append(resp_numeric(F_FINAL, final_score, rowIndex=i))
+            frags.append(resp_text(field_ids["provider"], provider, rowIndex=i))
+            frags.append(resp_numeric(field_ids["rank"], g["rank"], rowIndex=i))
+            frags.append(resp_numeric(field_ids["final_score"], final_score, rowIndex=i))
 
             if app.funding_requested is not None:
-                frags.append(resp_numeric(F_REQ, float(app.funding_requested), rowIndex=i))
+                frags.append(resp_numeric(field_ids["funding_requested"], float(app.funding_requested), rowIndex=i))
             if app.funding_given is not None:
-                frags.append(resp_numeric(F_GIVEN, float(app.funding_given), rowIndex=i))
+                frags.append(resp_numeric(field_ids["funding_granted"], float(app.funding_given), rowIndex=i))
+
+            success_answer = field_ids["success_yes"] if app.successful else field_ids["success_no"]
+            frags.append(resp_select(field_ids["success"], success_answer, rowIndex=i))
 
         # Push the outcome HTML to the report-specific rich text field.
-        frags.append(resp_text(F_HTML, table_html))
+        frags.append(resp_text(field_ids["table_html"], table_html))
 
         field_responses_str = "[\n  " + ",\n  ".join(frags) + "\n]"
 
