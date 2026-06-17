@@ -208,11 +208,13 @@
             <div class="mt-6">
               <div class="flex flex-col gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-end sm:p-5 hide-from-print-summary">
                 <button
-                  type="button"
+                  type="submit"
                   class="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-brand-300 hover:text-brand-700"
-                  onclick="window.print()"
+                  formaction="{{ url_for('score_report_pdf', token=token) }}"
+                  formmethod="post"
+                  formnovalidate
                 >
-                  Summary view
+                  Download PDF report
                 </button>
 
                 <button
