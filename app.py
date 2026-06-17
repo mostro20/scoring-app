@@ -119,17 +119,42 @@ def create_app():
         return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', ' ', text)
 
     def pdf_font_paths():
+        required = (
+            'DejaVuSans.ttf',
+            'DejaVuSans-Bold.ttf',
+        )
         font_dirs = [
             Path(app.root_path) / 'report_processing',
             Path('/usr/share/fonts/truetype/dejavu'),
             Path('/usr/local/share/fonts/dejavu'),
         ]
         for font_dir in font_dirs:
-            regular = font_dir / 'DejaVuSans.ttf'
-            bold = font_dir / 'DejaVuSans-Bold.ttf'
-            condensed = font_dir / 'DejaVuSansCondensed.ttf'
-            if regular.exists() and bold.exists() and condensed.exists():
-                return regular, bold, condensed
+            regular = font_dir / required[0]
+            bold = font_dir / required[1]
+            if regular.exists() and bold.exists():
+                return regular, bold
+
+        font_roots = [
+            Path(app.root_path),
+            Path('/usr/share/fonts'),
+            Path('/usr/local/share/fonts'),
+            Path.home() / '.local/share/fonts',
+        ]
+        for font_root in font_roots:
+            if not font_root.exists():
+                continue
+            matches = {}
+            for path in font_root.rglob('DejaVuSans*.ttf'):
+                if path.name in required:
+                    matches[path.name] = path
+            if all(name in matches for name in required):
+                return matches[required[0]], matches[required[1]]
+
+        app.logger.error(
+            "PDF DejaVu fonts not found. Checked directories: %s. Checked roots: %s",
+            ', '.join(str(path) for path in font_dirs),
+            ', '.join(str(path) for path in font_roots),
+        )
         return None
 
     class IndividualScoresPDF(FPDF):
@@ -143,13 +168,12 @@ def create_app():
             if not fonts:
                 raise RuntimeError(
                     'PDF font files not found. Install fonts-dejavu-core on Ubuntu '
-                    'or deploy DejaVuSans.ttf, DejaVuSans-Bold.ttf, and DejaVuSansCondensed.ttf '
+                    'or deploy DejaVuSans.ttf and DejaVuSans-Bold.ttf '
                     'to report_processing/.'
                 )
-            regular, bold, condensed = fonts
+            regular, bold = fonts
             self.add_font('DejaVu', '', str(regular))
             self.add_font('DejaVu', 'B', str(bold))
-            self.add_font('DejaVuCondensed', '', str(condensed))
 
         def header(self):
             self.set_fill_color(255, 255, 255)
