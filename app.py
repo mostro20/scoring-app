@@ -1,6 +1,8 @@
 # app.py
-import os, secrets, time, requests, json, re
-from flask import Flask, session, render_template, request, redirect, url_for, flash, session, send_from_directory, jsonify
+import os, secrets, time, requests, json, re, logging
+from io import BytesIO
+from flask import Flask, session, render_template, request, redirect, url_for, flash, session, send_from_directory, jsonify, send_file
+from fpdf import FPDF
 from extensions import db
 from flask_migrate import Migrate
 from pathlib import Path
@@ -16,6 +18,13 @@ from flask_simple_captcha import CAPTCHA
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv(), override=False)
+
+class _FpdfSvgWarningFilter(logging.Filter):
+    def filter(self, record):
+        return not record.getMessage().startswith('Ignoring unsupported SVG tag:')
+
+logging.getLogger('fpdf').addFilter(_FpdfSvgWarningFilter())
+logging.getLogger('fpdf.svg').addFilter(_FpdfSvgWarningFilter())
 
 def _clean_provider_name(code: str) -> str:
     """Strip leading digits + '.' or ':' + space, then anything from '('."""
@@ -98,6 +107,157 @@ def create_app():
                 return redirect(url_for('admin_login', next=request.url))
             return f(*args, **kwargs)
         return wrapper
+
+    def safe_download_filename(value):
+        cleaned = re.sub(r'[\\/\r\n\t]+', '-', value or '')
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip(' .')
+        return cleaned or 'Individual Panel Scores.pdf'
+
+    def pdf_text(value):
+        text = '' if value is None else str(value)
+        text = text.replace('\r\n', '\n').replace('\r', '\n').replace('\t', ' ')
+        return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', ' ', text)
+
+    class IndividualScoresPDF(FPDF):
+        def __init__(self, assessor_name, assessment_name, logo_path):
+            super().__init__(orientation='P', unit='mm', format='A4')
+            self.assessor_name = pdf_text(assessor_name)
+            self.assessment_name = pdf_text(assessment_name)
+            self.logo_path = logo_path
+            self.set_auto_page_break(auto=True, margin=18)
+            font_dir = Path(app.root_path) / 'report_processing'
+            self.add_font('DejaVu', '', str(font_dir / 'DejaVuSans.ttf'))
+            self.add_font('DejaVu', 'B', str(font_dir / 'DejaVuSans-Bold.ttf'))
+            self.add_font('DejaVuCondensed', '', str(font_dir / 'DejaVuSansCondensed.ttf'))
+
+        def header(self):
+            self.set_fill_color(255, 255, 255)
+            self.rect(0, 0, self.w, self.h, style='F')
+            if self.logo_path.exists():
+                self.image(str(self.logo_path), x=14, y=11, w=34)
+            self.set_xy(54, 13)
+            self.set_font('DejaVu', 'B', 10)
+            self.set_text_color(16, 34, 38)
+            self.multi_cell(
+                142,
+                5,
+                f"{self.assessor_name} | {self.assessment_name}",
+                border=0,
+                align='R',
+                new_x='LMARGIN',
+                new_y='NEXT'
+            )
+            self.set_draw_color(0, 132, 128)
+            self.line(14, 29, 196, 29)
+            self.set_xy(14, 36)
+
+        def footer(self):
+            pass
+
+    def score_value_from_request(form, score_dict, app_id, criteria_id):
+        key = f"{app_id}-{criteria_id}"
+        form_key = f"score-{app_id}-{criteria_id}"
+        posted_value = form.get(form_key)
+        if posted_value not in (None, ''):
+            try:
+                score_int = int(posted_value)
+                if 0 <= score_int <= 10:
+                    return score_int
+            except ValueError:
+                pass
+        return score_dict[key].score if key in score_dict else None
+
+    def comment_value_from_request(form, score_dict, app_id, criteria_id):
+        key = f"{app_id}-{criteria_id}"
+        form_key = f"comment-{app_id}-{criteria_id}"
+        if form_key in form:
+            return form.get(form_key) or ''
+        return score_dict[key].comment if key in score_dict and score_dict[key].comment else ''
+
+    def add_wrapped_label_value(pdf, label, value, label_width=24):
+        y = pdf.get_y()
+        pdf.set_font('DejaVu', 'B', 9)
+        pdf.set_text_color(51, 65, 85)
+        pdf.cell(label_width, 5, label)
+        pdf.set_xy(pdf.l_margin + label_width, y)
+        pdf.set_font('DejaVu', '', 9)
+        pdf.set_text_color(71, 85, 105)
+        pdf.multi_cell(0, 5, pdf_text(value or 'None provided'), new_x='LMARGIN', new_y='NEXT')
+
+    def build_individual_scores_pdf(assessor, assessment, applications, criteria, score_dict, form=None):
+        form = form or {}
+        pdf = IndividualScoresPDF(
+            assessor_name=assessor.name,
+            assessment_name=assessment.name,
+            logo_path=Path(app.static_folder) / 'HNC-logo-lockup-color.svg'
+        )
+        pdf.set_title(pdf_text(f"Individual Panel Scores - {assessor.name} - {assessment.name}"))
+        pdf.set_author('HNC Scoring App')
+        pdf.add_page()
+
+        pdf.set_font('DejaVu', 'B', 18)
+        pdf.set_text_color(16, 34, 38)
+        pdf.multi_cell(0, 8, 'Individual Panel Scores', new_x='LMARGIN', new_y='NEXT')
+        pdf.set_font('DejaVu', '', 10)
+        pdf.set_text_color(71, 85, 105)
+        pdf.multi_cell(0, 6, pdf_text(f"Assessor: {assessor.name}"), new_x='LMARGIN', new_y='NEXT')
+        pdf.multi_cell(0, 6, pdf_text(f"Assessment: {assessment.name}"), new_x='LMARGIN', new_y='NEXT')
+        pdf.ln(5)
+
+        for index, app_entry in enumerate(applications):
+            if index:
+                pdf.ln(3)
+
+            estimated_block_height = 18 + (len(criteria) * 28)
+            if pdf.get_y() + min(estimated_block_height, 78) > pdf.page_break_trigger:
+                pdf.add_page()
+
+            pdf.set_fill_color(238, 249, 248)
+            pdf.set_draw_color(173, 223, 218)
+            pdf.set_text_color(12, 84, 86)
+            pdf.set_font('DejaVu', 'B', 14)
+            pdf.cell(0, 10, pdf_text(f"Applicant {app_entry.code}"), border=1, ln=1, fill=True)
+
+            total = 0
+            has_score = False
+            for crit in criteria:
+                score_value = score_value_from_request(form, score_dict, app_entry.id, crit.id)
+                if score_value is not None:
+                    total += score_value * (crit.weight / 10)
+                    has_score = True
+
+            pdf.set_font('DejaVu', '', 9)
+            pdf.set_text_color(71, 85, 105)
+            weighted_text = f"Weighted score: {total:.2f} / 100" if has_score else "Weighted score: Not scored"
+            pdf.cell(0, 7, weighted_text, ln=1)
+            pdf.ln(1)
+
+            for crit in criteria:
+                if pdf.get_y() + 34 > pdf.page_break_trigger:
+                    pdf.add_page()
+
+                score_value = score_value_from_request(form, score_dict, app_entry.id, crit.id)
+                comment_value = comment_value_from_request(form, score_dict, app_entry.id, crit.id)
+                score_text = f"{score_value} / 10" if score_value is not None else "Not scored"
+
+                pdf.set_fill_color(248, 250, 252)
+                pdf.set_draw_color(226, 232, 240)
+                start_y = pdf.get_y()
+                pdf.rect(pdf.l_margin, start_y, pdf.epw, 8, style='FD')
+                pdf.set_xy(pdf.l_margin + 3, start_y + 1.5)
+                pdf.set_font('DejaVu', 'B', 10)
+                pdf.set_text_color(15, 23, 42)
+                pdf.multi_cell(pdf.epw - 6, 5, pdf_text(f"{crit.description} ({crit.weight}%)"), new_x='LMARGIN', new_y='NEXT')
+                pdf.ln(1)
+
+                add_wrapped_label_value(pdf, 'Score:', score_text)
+                add_wrapped_label_value(pdf, 'Comments:', comment_value or 'No comments provided')
+                pdf.ln(3)
+
+        output = pdf.output(dest='S')
+        if isinstance(output, str):
+            output = output.encode('latin-1')
+        return BytesIO(bytes(output))
 
     @app.route('/admin/login', methods=['GET', 'POST'])
     def admin_login():
@@ -762,6 +922,43 @@ def create_app():
             crit_weights=crit_weights,
             weighted_scores=weighted_scores,
             is_finalised=is_finalised
+        )
+
+    @app.route('/score/<token>/report.pdf', methods=['GET', 'POST'])
+    def score_report_pdf(token):
+        assessor = Assessor.query.filter_by(unique_token=token).first()
+        if not assessor:
+            return "Invalid URL", 404
+
+        if 'assessor_id' not in session or session['assessor_id'] != assessor.id:
+            return redirect(url_for('assessor_login', token=token))
+
+        assessment = Assessment.query.get(assessor.assessment_id)
+        applications = Application.query.filter_by(assessment_id=assessment.id).all()
+        criteria = Criteria.query.filter_by(assessment_id=assessment.id).all()
+        existing_scores = Score.query.filter_by(assessor_id=assessor.id).all()
+        score_dict = {
+            f"{score.application_id}-{score.criteria_id}": score
+            for score in existing_scores
+        }
+
+        pdf_io = build_individual_scores_pdf(
+            assessor=assessor,
+            assessment=assessment,
+            applications=applications,
+            criteria=criteria,
+            score_dict=score_dict,
+            form=request.form if request.method == 'POST' else None
+        )
+        filename = safe_download_filename(
+            f"Individual Panel Scores - {assessor.name} - {assessment.name}.pdf"
+        )
+        pdf_io.seek(0)
+        return send_file(
+            pdf_io,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
         )
     
     @app.route('/admin/scores/summary-history', methods=['GET', 'POST'])
