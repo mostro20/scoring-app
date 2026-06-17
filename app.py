@@ -118,6 +118,20 @@ def create_app():
         text = text.replace('\r\n', '\n').replace('\r', '\n').replace('\t', ' ')
         return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', ' ', text)
 
+    def pdf_font_paths():
+        font_dirs = [
+            Path(app.root_path) / 'report_processing',
+            Path('/usr/share/fonts/truetype/dejavu'),
+            Path('/usr/local/share/fonts/dejavu'),
+        ]
+        for font_dir in font_dirs:
+            regular = font_dir / 'DejaVuSans.ttf'
+            bold = font_dir / 'DejaVuSans-Bold.ttf'
+            condensed = font_dir / 'DejaVuSansCondensed.ttf'
+            if regular.exists() and bold.exists() and condensed.exists():
+                return regular, bold, condensed
+        return None
+
     class IndividualScoresPDF(FPDF):
         def __init__(self, assessor_name, assessment_name, logo_path):
             super().__init__(orientation='P', unit='mm', format='A4')
@@ -125,10 +139,17 @@ def create_app():
             self.assessment_name = pdf_text(assessment_name)
             self.logo_path = logo_path
             self.set_auto_page_break(auto=True, margin=18)
-            font_dir = Path(app.root_path) / 'report_processing'
-            self.add_font('DejaVu', '', str(font_dir / 'DejaVuSans.ttf'))
-            self.add_font('DejaVu', 'B', str(font_dir / 'DejaVuSans-Bold.ttf'))
-            self.add_font('DejaVuCondensed', '', str(font_dir / 'DejaVuSansCondensed.ttf'))
+            fonts = pdf_font_paths()
+            if not fonts:
+                raise RuntimeError(
+                    'PDF font files not found. Install fonts-dejavu-core on Ubuntu '
+                    'or deploy DejaVuSans.ttf, DejaVuSans-Bold.ttf, and DejaVuSansCondensed.ttf '
+                    'to report_processing/.'
+                )
+            regular, bold, condensed = fonts
+            self.add_font('DejaVu', '', str(regular))
+            self.add_font('DejaVu', 'B', str(bold))
+            self.add_font('DejaVuCondensed', '', str(condensed))
 
         def header(self):
             self.set_fill_color(255, 255, 255)
