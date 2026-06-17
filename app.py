@@ -155,7 +155,10 @@ def create_app():
             self.set_fill_color(255, 255, 255)
             self.rect(0, 0, self.w, self.h, style='F')
             if self.logo_path.exists():
-                self.image(str(self.logo_path), x=14, y=11, w=34)
+                try:
+                    self.image(str(self.logo_path), x=14, y=11, w=34)
+                except Exception:
+                    app.logger.exception("Unable to render PDF header logo: %s", self.logo_path)
             self.set_xy(54, 13)
             self.set_font('DejaVu', 'B', 10)
             self.set_text_color(16, 34, 38)
@@ -947,40 +950,44 @@ def create_app():
 
     @app.route('/score/<token>/report.pdf', methods=['GET', 'POST'])
     def score_report_pdf(token):
-        assessor = Assessor.query.filter_by(unique_token=token).first()
-        if not assessor:
-            return "Invalid URL", 404
+        try:
+            assessor = Assessor.query.filter_by(unique_token=token).first()
+            if not assessor:
+                return "Invalid URL", 404
 
-        if 'assessor_id' not in session or session['assessor_id'] != assessor.id:
-            return redirect(url_for('assessor_login', token=token))
+            if 'assessor_id' not in session or session['assessor_id'] != assessor.id:
+                return redirect(url_for('assessor_login', token=token))
 
-        assessment = Assessment.query.get(assessor.assessment_id)
-        applications = Application.query.filter_by(assessment_id=assessment.id).all()
-        criteria = Criteria.query.filter_by(assessment_id=assessment.id).all()
-        existing_scores = Score.query.filter_by(assessor_id=assessor.id).all()
-        score_dict = {
-            f"{score.application_id}-{score.criteria_id}": score
-            for score in existing_scores
-        }
+            assessment = Assessment.query.get(assessor.assessment_id)
+            applications = Application.query.filter_by(assessment_id=assessment.id).all()
+            criteria = Criteria.query.filter_by(assessment_id=assessment.id).all()
+            existing_scores = Score.query.filter_by(assessor_id=assessor.id).all()
+            score_dict = {
+                f"{score.application_id}-{score.criteria_id}": score
+                for score in existing_scores
+            }
 
-        pdf_io = build_individual_scores_pdf(
-            assessor=assessor,
-            assessment=assessment,
-            applications=applications,
-            criteria=criteria,
-            score_dict=score_dict,
-            form=request.form if request.method == 'POST' else None
-        )
-        filename = safe_download_filename(
-            f"Individual Panel Scores - {assessor.name} - {assessment.name}.pdf"
-        )
-        pdf_io.seek(0)
-        return send_file(
-            pdf_io,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=filename
-        )
+            pdf_io = build_individual_scores_pdf(
+                assessor=assessor,
+                assessment=assessment,
+                applications=applications,
+                criteria=criteria,
+                score_dict=score_dict,
+                form=request.form if request.method == 'POST' else None
+            )
+            filename = safe_download_filename(
+                f"Individual Panel Scores - {assessor.name} - {assessment.name}.pdf"
+            )
+            pdf_io.seek(0)
+            return send_file(
+                pdf_io,
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name=filename
+            )
+        except Exception:
+            app.logger.exception("Unable to generate score report PDF for token %s", token)
+            raise
     
     @app.route('/admin/scores/summary-history', methods=['GET', 'POST'])
     @admin_login_required
