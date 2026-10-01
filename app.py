@@ -108,6 +108,35 @@ def create_app():
             return f(*args, **kwargs)
         return wrapper
 
+    def assessor_session_expires_at(assessor_id):
+        """Return the assessor session expiry timestamp, or a falsey auth state.
+
+        ``None`` means there is no session for this assessor. ``0`` means a
+        matching session has expired. Older sessions created before login
+        timestamps were introduced receive a fresh lifetime on their first
+        request after deployment.
+        """
+        if session.get('assessor_id') != assessor_id:
+            return None
+
+        logged_in_at = session.get('assessor_logged_in_at')
+        if logged_in_at is None:
+            logged_in_at = time.time()
+            session['assessor_logged_in_at'] = logged_in_at
+            session.permanent = True
+
+        try:
+            expires_at = float(logged_in_at) + app.permanent_session_lifetime.total_seconds()
+        except (TypeError, ValueError):
+            expires_at = 0
+
+        if time.time() >= expires_at:
+            session.pop('assessor_id', None)
+            session.pop('assessor_logged_in_at', None)
+            return 0
+
+        return expires_at
+
     def safe_download_filename(value):
         cleaned = re.sub(r'[\\/\r\n\t]+', '-', value or '')
         cleaned = re.sub(r'\s+', ' ', cleaned).strip(' .')
@@ -862,8 +891,10 @@ def create_app():
         if request.method == 'POST':
             entered_code = request.form.get('access_code')
             if entered_code == assessor.access_code:
-                # Store assessor id in session and redirect to scoring page
+                # Use a fixed 24-hour lifetime from login rather than a browser-only timer.
+                session.permanent = True
                 session['assessor_id'] = assessor.id
+                session['assessor_logged_in_at'] = time.time()
                 return redirect(url_for('score', token=token))
             else:
                 flash("Invalid access code. Please try again.")
@@ -876,8 +907,12 @@ def create_app():
         if not assessor:
             return "Invalid URL", 404
 
-        if 'assessor_id' not in session or session['assessor_id'] != assessor.id:
-            return redirect(url_for('assessor_login', token=token))
+        session_expires_at = assessor_session_expires_at(assessor.id)
+        if not session_expires_at:
+            login_args = {'token': token}
+            if session_expires_at == 0:
+                login_args['expired'] = 1
+            return redirect(url_for('assessor_login', **login_args))
 
         if request.method == 'POST':
             action = request.form.get('action')  # will be 'save' or 'finalise'
@@ -969,7 +1004,11 @@ def create_app():
             score_dict=score_dict,
             crit_weights=crit_weights,
             weighted_scores=weighted_scores,
-            is_finalised=is_finalised
+            is_finalised=is_finalised,
+            assessor_session_remaining_ms=max(
+                0,
+                int((session_expires_at - time.time()) * 1000)
+            )
         )
 
     @app.route('/score/<token>/report.pdf', methods=['GET', 'POST'])
@@ -979,8 +1018,12 @@ def create_app():
             if not assessor:
                 return "Invalid URL", 404
 
-            if 'assessor_id' not in session or session['assessor_id'] != assessor.id:
-                return redirect(url_for('assessor_login', token=token))
+            session_expires_at = assessor_session_expires_at(assessor.id)
+            if not session_expires_at:
+                login_args = {'token': token}
+                if session_expires_at == 0:
+                    login_args['expired'] = 1
+                return redirect(url_for('assessor_login', **login_args))
 
             assessment = Assessment.query.get(assessor.assessment_id)
             applications = Application.query.filter_by(assessment_id=assessment.id).all()
@@ -1247,8 +1290,15 @@ def create_app():
     @app.route('/score/<token>/autosave', methods=['POST'])
     def autosave_score(token):
         assessor = Assessor.query.filter_by(unique_token=token).first_or_404()
-        if session.get('assessor_id') != assessor.id:
-            return jsonify({ 'error': 'not-authorized' }), 401
+        session_expires_at = assessor_session_expires_at(assessor.id)
+        if not session_expires_at:
+            login_args = {'token': token}
+            if session_expires_at == 0:
+                login_args['expired'] = 1
+            return jsonify({
+                'error': 'not-authorized',
+                'login_url': url_for('assessor_login', **login_args)
+            }), 401
 
         data = request.get_json() or {}
         app_id  = data.get('application_id')

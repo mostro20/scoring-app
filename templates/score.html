@@ -252,16 +252,6 @@
         </aside>
       </div>
 
-      <section class="mt-6 hide-from-print-summary">
-        <div class="flex flex-col gap-3 rounded-[1.5rem] border border-brand-100 bg-brand-50/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div>
-            <p class="text-sm font-semibold text-brand-800">Session time remaining: <span id="session-timer">24:00:00</span></p>
-          </div>
-          <p class="text-sm leading-6 text-brand-700">
-            After this time changes will no longer auto-save and you will need to log back in.
-          </p>
-        </div>
-      </section>
     </main>
 
     {% with messages = get_flashed_messages() %}
@@ -287,36 +277,6 @@
         </div>
       {% endif %}
     {% endwith %}
-
-    <div id="sessionExpiredModal" class="modal-shell hidden" aria-labelledby="sessionExpiredModalLabel" aria-hidden="true">
-      <div class="modal-backdrop" data-close-modal="sessionExpiredModal"></div>
-      <div class="modal-panel" role="dialog" aria-modal="true">
-        <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
-          <div>
-            <h2 class="text-xl font-semibold text-slate-900" id="sessionExpiredModalLabel">Session expired</h2>
-          </div>
-          <button type="button" class="modal-close" aria-label="Close" data-close-modal="sessionExpiredModal">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="px-6 py-5 text-sm leading-7 text-slate-600">
-          <p>
-            Your scoring page has been open for more than 24 hours. For security reasons,
-            your login session may have expired.
-          </p>
-          <ul class="mt-4 list-disc space-y-2 pl-5">
-            <li>Any scores you enter from now on may not be saved.</li>
-            <li>Please copy any notes you need, then refresh this page using your original access link.</li>
-          </ul>
-        </div>
-        <div class="flex flex-col-reverse gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row sm:justify-end">
-          <button type="button" class="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-brand-300 hover:text-brand-700" data-close-modal="sessionExpiredModal">
-            I'll refresh later
-          </button>
-          <a href="" class="inline-flex items-center justify-center rounded-2xl border border-brand-500 bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-brand-900 hover:bg-brand-900" id="sessionRefreshLink">Refresh now</a>
-        </div>
-      </div>
-    </div>
 
     <script>
       function openModal(id) {
@@ -418,13 +378,19 @@
 
       // build the autosave URL once
       const autosaveUrl = "{{ url_for('autosave_score', token=token) }}";
-      // global flag to stop autosave after session expiry
-      window.sessionExpired = false;
+      const assessorLoginUrl = {{ url_for('assessor_login', token=token, expired=1) | tojson }};
+      const sessionDeadline = Date.now() + {{ assessor_session_remaining_ms | tojson }};
+      let redirectingToLogin = false;
+
+      function redirectToLogin() {
+        if (redirectingToLogin) return;
+        redirectingToLogin = true;
+        window.location.replace(assessorLoginUrl);
+      }
 
       // helper to POST JSON
       async function autosave(payload) {
-        if (window.sessionExpired) {
-          console.warn('Skipping autosave because session is marked as expired.');
+        if (redirectingToLogin) {
           return;
         }
         try {
@@ -434,8 +400,12 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
+          if (res.status === 401) {
+            redirectToLogin();
+            return;
+          }
           if (!res.ok) {
-            let err = await res.json();
+            let err = await res.json().catch(() => ({ status: res.status }));
             console.error('Autosave error:', err);
           }
         } catch (e) {
@@ -591,76 +561,24 @@
         });
       });
 
-      // -------------------------
-      // Session countdown (24 hrs)
-      // Uses localStorage so refreshes don't reset it
-      // -------------------------
-      document.addEventListener('DOMContentLoaded', () => {
-        const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
-        const timerEl = document.getElementById('session-timer');
-        if (!timerEl) return;
+      // Redirect at the server-defined deadline. The visibility/pageshow checks
+      // catch browsers that throttle timers while the tab or device is asleep.
+      const sessionTimeoutId = window.setTimeout(
+        redirectToLogin,
+        Math.max(0, sessionDeadline - Date.now())
+      );
 
-        const token = "{{ token }}";
-        const LS_KEY = `scoringTimer_${token}`;
-
-        const refreshLink = document.getElementById('sessionRefreshLink');
-        if (refreshLink) {
-          refreshLink.href = window.location.href;
+      function redirectIfSessionExpired() {
+        if (Date.now() >= sessionDeadline) {
+          window.clearTimeout(sessionTimeoutId);
+          redirectToLogin();
         }
+      }
 
-        function handleExpired() {
-          if (window.sessionExpired) return;
-          window.sessionExpired = true;
-
-          document.querySelectorAll('input[name^="score-"], textarea[name^="comment-"]').forEach(el => {
-            el.setAttribute('disabled', 'disabled');
-          });
-          document.getElementById('finaliseBtn')?.setAttribute('disabled', 'disabled');
-
-          openModal('sessionExpiredModal');
-        }
-
-        function formatTime(ms) {
-          const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-          const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
-          const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
-          const s = String(totalSeconds % 60).padStart(2, '0');
-          return `${h}:${m}:${s}`;
-        }
-
-        let sessionData = null;
-        try {
-          sessionData = JSON.parse(localStorage.getItem(LS_KEY));
-        } catch (_) {}
-
-        const now = Date.now();
-
-        if (!sessionData || !sessionData.expiry || now > sessionData.expiry) {
-          const start = now;
-          const expiry = start + SESSION_DURATION_MS;
-          sessionData = { start, expiry };
-          localStorage.setItem(LS_KEY, JSON.stringify(sessionData));
-        }
-
-        if (now >= sessionData.expiry) {
-          timerEl.textContent = "00:00:00";
-          handleExpired();
-          return;
-        }
-
-        const intervalId = setInterval(() => {
-          const remaining = sessionData.expiry - Date.now();
-          if (remaining <= 0) {
-            timerEl.textContent = "00:00:00";
-            clearInterval(intervalId);
-            handleExpired();
-            return;
-          }
-          timerEl.textContent = formatTime(remaining);
-        }, 1000);
-
-        timerEl.textContent = formatTime(sessionData.expiry - now);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') redirectIfSessionExpired();
       });
+      window.addEventListener('pageshow', redirectIfSessionExpired);
     </script>
   </body>
 </html>

@@ -66,6 +66,12 @@
                 <h2 class="mt-3 text-2xl font-semibold text-slate-900">Continue to scoring</h2>
               </div>
 
+              {% if request.args.get('expired') %}
+                <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800" role="status">
+                  Your session expired, so we signed you out. Log in again to continue; all previously saved scores and comments are safe.
+                </div>
+              {% endif %}
+
               <form method="POST" action="{{ url_for('assessor_login', token=token) }}" class="space-y-6">
                 <div>
                   <label for="access_code" class="mb-2 block text-sm font-medium text-slate-700">Enter access code</label>
