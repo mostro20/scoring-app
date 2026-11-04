@@ -82,7 +82,15 @@
           </div>
         </form>
 
-        <form method="POST" action="{{ url_for('admin') }}" enctype="multipart/form-data" class="mt-10 border-t border-slate-200 pt-8">
+        <form
+          method="POST"
+          action="{{ url_for('admin') }}"
+          enctype="multipart/form-data"
+          class="mt-10 border-t border-slate-200 pt-8"
+          {% if selected_assessment %}
+          onsubmit="return confirm('If you edit an existing assessment, all scores will be erased. Are you sure you want to continue?');"
+          {% endif %}
+        >
           {% if selected_assessment %}
           <input type="hidden" name="assessment_id" value="{{ selected_assessment.id }}">
           {% endif %}
