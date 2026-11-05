@@ -224,23 +224,23 @@
                     </thead>
                     <tbody>
                       {% for score, assessor, application, criteria, weighted in detailed_scores %}
-                      <tr>
-                        <form method="POST" action="{{ url_for('edit_score', score_id=score.id) }}">
-                          <td><a name="auditScores-{{ score.id }}"></a>{{ assessor.name }}</td>
+                      <tr id="auditScores-{{ score.id }}">
+                          <td>{{ assessor.name }}</td>
                           <td>{{ application.code }}</td>
                           <td>{{ criteria.description }}</td>
                           <td>
-                            <input type="number" name="score" min="0" max="10" step="1" class="admin-input" value="{{ score.score }}">
+                            <input type="number" name="score" min="0" max="10" step="1" class="admin-input" value="{{ score.score }}" form="edit-score-{{ score.id }}">
                           </td>
                           <td>{{ weighted | round(2) * 10 }}</td>
                           <td>
-                            <input type="text" name="comment" class="admin-input" value="{{ score.comment }}" title="{{ score.comment }}">
+                            <input type="text" name="comment" class="admin-input" value="{{ score.comment }}" title="{{ score.comment }}" form="edit-score-{{ score.id }}">
                           </td>
                           <td>{{ score.created_at.strftime("%Y-%m-%d | %H:%M") if score.created_at else '' }}</td>
                           <td>
-                            <button type="submit" class="admin-btn">Update</button>
+                            <form id="edit-score-{{ score.id }}" method="POST" action="{{ url_for('edit_score', score_id=score.id) }}">
+                              <button type="submit" class="admin-btn">Update</button>
+                            </form>
                           </td>
-                        </form>
                       </tr>
                       {% endfor %}
                     </tbody>
